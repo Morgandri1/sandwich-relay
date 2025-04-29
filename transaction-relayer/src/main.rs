@@ -491,6 +491,10 @@ fn main() {
         1,
         args.disable_mempool,
         &exit,
+        &[
+            Pubkey::from_str_const(""), // TODO: ADD RAYDIUM PRGMID
+            Pubkey::from_str_const(""), // TODO: ADD PUMPSWAP PRGMID
+        ]
     );
 
     let is_connected_to_block_engine = Arc::new(AtomicBool::new(false));

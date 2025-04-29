@@ -3007,6 +3007,7 @@ dependencies = [
  "jito-rpc",
  "jwt",
  "log",
+ "mev-lib",
  "openssl",
  "prost-types 0.12.6",
  "serde",

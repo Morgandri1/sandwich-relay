@@ -1,7 +1,7 @@
+use solana_core::banking_trace::BankingPacketBatch;
 use solana_perf::packet::PacketBatch;
 use std::sync::Arc;
 use bincode;
-use jito_relayer::relayer::RelayerPacketBatches;
 use solana_sdk::{pubkey::Pubkey, transaction::VersionedTransaction};
 use crate::result::{MevResult, MevError};
 use crate::comp::is_relevant_swap;
@@ -13,9 +13,8 @@ use crate::tx::build_tx_sandwich;
 /// * `relevant_programs` - List of program IDs that should be targeted for sandwiching
 /// # Returns
 /// A new `RelayerPacketBatches` containing the original packets and sandwich packets
-pub fn sandwich_batch_packets(batch: &mut RelayerPacketBatches, relevant_programs: &[Pubkey]) -> MevResult<RelayerPacketBatches> {
-    let banking_packet_batch = batch.banking_packet_batch.clone();
-    let (packet_batches, stats) = &*banking_packet_batch;
+pub fn sandwich_batch_packets(batch: BankingPacketBatch, relevant_programs: &[Pubkey]) -> MevResult<BankingPacketBatch> {
+    let (packet_batches, stats) = &*batch;
     
     // Create new packet batches that will include original packets and sandwich packets
     let mut new_packet_batches = Vec::with_capacity(packet_batches.len());
@@ -43,10 +42,7 @@ pub fn sandwich_batch_packets(batch: &mut RelayerPacketBatches, relevant_program
     let new_banking_packet_batch = Arc::new((new_packet_batches, stats.clone()));
     
     // Create a new RelayerPacketBatches with the original timestamp but updated banking_packet_batch
-    Ok(RelayerPacketBatches {
-        stamp: batch.stamp,
-        banking_packet_batch: new_banking_packet_batch
-    })
+    Ok(new_banking_packet_batch)
 }
 
 /// Helper function to create a new packet for sandwiching

@@ -1,4 +1,6 @@
 pub mod result;
-pub mod tx;
-pub mod comp;
-pub mod packets;
+mod tx;
+mod comp;
+mod packets;
+
+pub use packets::*;

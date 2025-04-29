@@ -41,6 +41,7 @@ jito-protos = { path = "jito-protos", version = "=0.3.1" }
 jito-relayer = { path = "relayer", version = "=0.3.1" }
 jito-relayer-web = { path = "web", version = "=0.3.1" }
 jito-rpc = { path = "rpc", version = "=0.3.1" }
+mev-lib = { path = "mev-lib" }
 jwt = { version = "0.16.0", features = ["openssl"] }
 keyed_priority_queue = "0.4.1"
 lazy_static = "1.4.0"
