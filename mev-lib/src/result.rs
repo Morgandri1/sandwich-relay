@@ -6,6 +6,8 @@ pub enum MevError {
     ConversionWouldOverflow,
     FailedToDeserialize,
     FailedToSerialize,
+    ValueError,
+    FailedToBuildTx,
     UnknownError
 }
 
@@ -15,6 +17,8 @@ impl fmt::Display for MevError {
             Self::ConversionWouldOverflow => write!(f, "Numeric conversion would overflow"),
             Self::FailedToDeserialize => write!(f, "Failed to deserialize"),
             Self::FailedToSerialize => write!(f, "Failed to serialize"),
+            Self::ValueError => write!(f, "Value Error"),
+            Self::FailedToBuildTx => write!(f, "Failed to build transaction"),
             Self::UnknownError => write!(f, "an Unknown Error occured")
         }
     }    

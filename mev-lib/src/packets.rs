@@ -4,7 +4,7 @@ use std::sync::Arc;
 use bincode;
 use solana_sdk::{pubkey::Pubkey, transaction::VersionedTransaction};
 use crate::result::{MevResult, MevError};
-use crate::comp::is_relevant_swap;
+use crate::comp::is_relevant_tx;
 use crate::tx::build_tx_sandwich;
 
 /// Process a batch of packets and add 'sandwich' transactions around relevant swap operations
@@ -28,7 +28,7 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, relevant_programs: &[Pu
                 .deserialize_slice::<VersionedTransaction, _>(..)
                 .map_err(|_| MevError::FailedToDeserialize)?;
                 
-            if is_relevant_swap(&vtx, relevant_programs) {
+            if is_relevant_tx(&vtx, relevant_programs) {
                 // Create and add sandwich packet
                 new_batch.push(create_sandwich_packet(packet)?);
             } else {

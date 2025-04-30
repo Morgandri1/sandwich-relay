@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSimulateTransactionConfig};
@@ -23,7 +23,7 @@ use spl_token::instruction::sync_native;
 use std::{convert::TryInto, sync::Arc};
 use std::{mem::size_of, str::FromStr};
 
-use crate::raydium::{subscribe::PoolKeysSniper, utils::utils::LIQUIDITY_STATE_LAYOUT_V4};
+use crate::{raydium::subscribe::PoolKeys, result::{MevError, MevResult}};
 
 /// Instructions supported by the AmmInfo program.
 #[repr(C)]
@@ -111,7 +111,7 @@ pub const SOLC_MINT: Pubkey = pubkey!("So111111111111111111111111111111111111111
 pub const USDC_MINT: Pubkey = pubkey!("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 pub const TAX_ACCOUNT: Pubkey = pubkey!("D5bBVBQDNDzroQpduEJasYL5HkvARD6TcNu3yJaeVK5W");
 /// Creates a 'swap base in' instruction.
-pub async fn swap_base_in(
+pub fn swap_base_in(
     amm_program: &Pubkey,
     amm_pool: &Pubkey,
     amm_authority: &Pubkey,
@@ -197,7 +197,7 @@ pub async fn swap_base_in(
     Ok(instructions)
 }
 
-pub async fn swap_base_out(
+pub fn swap_base_out(
     amm_program: &Pubkey,
     amm_pool: &Pubkey,
     amm_authority: &Pubkey,
@@ -294,21 +294,21 @@ pub struct PoolInfo {
 
 pub async fn fetch_muliple_info(
     rpc_client: Arc<RpcClient>,
-    pool_keys: PoolKeysSniper,
+    pool_keys: PoolKeys,
     wallet: Arc<Keypair>,
-) -> eyre::Result<PoolInfo> {
-    let instructions = vec![make_simulate_pool_info_instruction(pool_keys.clone()).await?];
+) -> MevResult<PoolInfo> {
+    let instructions = vec![make_simulate_pool_info_instruction(pool_keys.clone()).await.map_err(|_| crate::result::MevError::ValueError)?];
 
     let log =
         simulate_multiple_instruction(&rpc_client, instructions, pool_keys.clone(), wallet).await?;
 
-    let pool_info: PoolInfo = serde_json::from_str(&log.to_string())?;
+    let pool_info: PoolInfo = serde_json::from_str(&log.to_string()).map_err(|_| crate::result::MevError::ValueError)?;
 
     Ok(pool_info)
 }
 
 pub async fn make_simulate_pool_info_instruction(
-    pool_keys: PoolKeysSniper,
+    pool_keys: PoolKeys,
 ) -> Result<Instruction, ProgramError> {
     let instruction_data: [u8; 2] = [12, 0]; // 12 for instruction, 0 for simulateType
 
@@ -333,16 +333,16 @@ pub async fn make_simulate_pool_info_instruction(
 pub async fn simulate_multiple_instruction(
     rpc_client: &RpcClient,
     instructions: Vec<Instruction>,
-    pool_keys: PoolKeysSniper,
+    pool_keys: PoolKeys,
     wallet: Arc<Keypair>,
-) -> eyre::Result<Value> {
+) -> MevResult<Value> {
     let lookup = address_deserailizer([pool_keys.lookup_table_account].to_vec());
     let message = Message::try_compile(
         &wallet.pubkey(),
         &instructions,
         &[lookup],
-        rpc_client.get_latest_blockhash().await?,
-    )?;
+        rpc_client.get_latest_blockhash().await.map_err(|_| crate::result::MevError::ValueError)?,
+    ).map_err(|_| crate::result::MevError::ValueError)?;
     let transaction = match VersionedTransaction::try_new(
         solana_program::message::VersionedMessage::V0(message),
         &[&wallet],
@@ -350,7 +350,7 @@ pub async fn simulate_multiple_instruction(
         Ok(transaction) => transaction,
         Err(e) => {
             println!("Error: {:?}", e);
-            return Err(eyre::eyre!("Error: {:?}", e));
+            return Err(crate::result::MevError::UnknownError);
         }
     };
 
@@ -362,18 +362,19 @@ pub async fn simulate_multiple_instruction(
                 ..RpcSimulateTransactionConfig::default()
             },
         )
-        .await?;
+        .await.map_err(|_| crate::result::MevError::ValueError)?;
     if let Some(logs) = result.value.logs {
         for log in logs {
             if log.starts_with("Program log: GetPoolData:") {
                 let json_part = &log["Program log: GetPoolData:".len()..];
-                let pool_data: Value = serde_json::from_str(json_part)?;
+                let pool_data: Value = serde_json::from_str(json_part)
+                    .map_err(|_| crate::result::MevError::ValueError)?;
                 return Ok(pool_data);
             }
         }
     }
 
-    Err(eyre::eyre!("No pool data found"))
+    Err(crate::result::MevError::UnknownError)
 }
 
 pub fn address_deserailizer(address_lookup: Vec<Pubkey>) -> AddressLookupTableAccount {
@@ -456,16 +457,16 @@ pub async fn swap_amount_out(pool_info: PoolInfo, amount_in: u64) -> u128 {
 
 pub async fn token_price_data(
     rpc_client: Arc<RpcClient>,
-    pool_keys: PoolKeysSniper,
+    pool_keys: PoolKeys,
     wallet: Arc<Keypair>,
     amount_in: u64,
-) -> eyre::Result<u128> {
+) -> MevResult<u128> {
     let mut pool_ids = pool_keys.clone();
     if pool_keys.base_mint == SOLC_MINT {
         pool_ids.base_mint = pool_keys.quote_mint.clone();
         pool_ids.quote_mint = pool_keys.base_mint.clone();
     }
-    let pool_info = fetch_muliple_info(rpc_client, pool_ids.clone(), wallet).await?;
+    let pool_info = fetch_muliple_info(rpc_client, pool_ids.clone(), wallet).await.map_err(|_| crate::result::MevError::ValueError)?;
     // info!("Pool Info: {}", serde_json::to_string_pretty(&pool_info)?);
     let swap_amount_out = swap_amount_out(pool_info, amount_in).await;
 
@@ -478,7 +479,7 @@ pub async fn wrap_sol(
     rpc_client: Arc<RpcClient>,
     wallet: &Keypair,
     amount_in: u64,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> MevResult<()> {
     let user_token_destination = get_associated_token_address(&wallet.pubkey(), &SOLC_MINT);
 
     let mut instructions = Vec::new();
@@ -487,7 +488,7 @@ pub async fn wrap_sol(
     if let Ok(account) = rpc_client.get_account(&user_token_destination).await {
         if account.owner != spl_token::id() {
             return Err(
-                eyre::eyre!("Error: Account already exists: {}", user_token_destination).into(),
+                MevError::UnknownError
             );
         }
     } else {
@@ -509,11 +510,12 @@ pub async fn wrap_sol(
         amount_in,
     ));
 
-    let sync_native = sync_native(&spl_token::id(), &user_token_destination)?;
+    let sync_native = sync_native(&spl_token::id(), &user_token_destination)
+        .map_err(|_| crate::result::MevError::ValueError)?;
     instructions.push(sync_native);
     let (blockhash, _) = rpc_client
         .get_latest_blockhash_with_commitment(CommitmentConfig::confirmed())
-        .await?;
+        .await.map_err(|_| crate::result::MevError::ValueError)?;
     let transaction = Transaction::new_signed_with_payer(
         &instructions,
         Some(&wallet.pubkey()),

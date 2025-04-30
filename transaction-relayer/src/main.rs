@@ -492,7 +492,9 @@ fn main() {
         args.disable_mempool,
         &exit,
         &[
-            Pubkey::from_str_const(""), // TODO: ADD RAYDIUM PRGMID
+            // Raydium
+            Pubkey::from_str_const("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
+            // PumpSwap
             Pubkey::from_str_const(""), // TODO: ADD PUMPSWAP PRGMID
         ]
     );
