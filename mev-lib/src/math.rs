@@ -19,10 +19,9 @@ pub fn calculate_tx_input_raydium(
     pool_info: PoolInfo,
 ) -> u128 {
     if x_to_y {
-        let our_in = (pool_info.k / (pool_info.y - min_out_amount)) - pool_info.x;
+        (pool_info.k / (pool_info.y - min_out_amount)) - pool_info.x
     } else {
-        let our_in = (pool_info.k / (pool_info.x - min_out_amount)) - pool_info.y;
+        (pool_info.k / (pool_info.x - min_out_amount)) - pool_info.y
     }
-    return our_in;
 }
 pub fn calculate_tx_input_pump(in_amount: u64, out_amount: u64) -> u64 {}
