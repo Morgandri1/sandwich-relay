@@ -1,9 +1,10 @@
 use solana_sdk::{pubkey::Pubkey, transaction::VersionedTransaction};
 
-use crate::result::{MevError, MevResult};
+use crate::{programs::{pumpfun::PUMP_FUN_PROGRAM_ID, pumpswap::PUMP_SWAP_PROGRAM_ID, raydium::{LPV4_SWAP, RAYDIUM_AMM_PROGRAM_ID}, ProgramInstruction}, result::{MevError, MevResult}};
 
 pub enum SwapProviders {
     Raydium,
+    RaydiumLegacy,
     PumpSwap,
     PumpFun,
     RaydiumCPMM,
@@ -22,16 +23,19 @@ pub fn is_relevant_tx(transaction: &VersionedTransaction, relevant_programs: &[P
     for ix in instruction {
         let index: usize = ix.program_id_index.into();
         let program_id = keys[index];
-        if relevant_programs.contains(&program_id) {
+        if ProgramInstruction::from_ix(ix, keys).is_some() {
             return true
         };
     };
     return false
 }
 
-pub fn match_program_id_to_provider(program_id: &Pubkey) -> MevResult<SwapProviders> {
-    match program_id.to_string().as_str() {
-        "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" => Ok(SwapProviders::Raydium),
-        _ => Err(MevError::ValueError)
+pub fn match_program_id_to_provider(program_id: &Pubkey) -> Option<SwapProviders> {
+    match program_id {
+        &RAYDIUM_AMM_PROGRAM_ID => Some(SwapProviders::Raydium),
+        &LPV4_SWAP => Some(SwapProviders::RaydiumLegacy),
+        &PUMP_FUN_PROGRAM_ID => Some(SwapProviders::PumpFun),
+        &PUMP_SWAP_PROGRAM_ID => Some(SwapProviders::PumpSwap),
+        _ => None
     }
 }

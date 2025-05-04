@@ -2,13 +2,15 @@ use std::fmt;
 
 pub type MevResult<T> = Result<T, MevError>;
 
+#[derive(Debug)]
 pub enum MevError {
     ConversionWouldOverflow,
     FailedToDeserialize,
     FailedToSerialize,
     ValueError,
     FailedToBuildTx,
-    UnknownError
+    UnknownError,
+    IncorrectProgram,
 }
 
 impl fmt::Display for MevError {
@@ -19,7 +21,8 @@ impl fmt::Display for MevError {
             Self::FailedToSerialize => write!(f, "Failed to serialize"),
             Self::ValueError => write!(f, "Value Error"),
             Self::FailedToBuildTx => write!(f, "Failed to build transaction"),
-            Self::UnknownError => write!(f, "an Unknown Error occured")
+            Self::UnknownError => write!(f, "an Unknown Error occured"),
+            Self::IncorrectProgram => write!(f, "Passed incorrect program to deserializer")
         }
     }    
 }

@@ -1,5 +1,5 @@
 pub mod result;
-mod tx;
+pub mod tx;
 mod comp;
 mod packets;
 #[cfg(test)]
@@ -7,6 +7,8 @@ mod test;
 mod swap;
 mod raydium;
 mod math;
+mod tx_types;
+mod programs;
 
 use crate::raydium::subscribe::PoolKeys;
 use solana_sdk::{

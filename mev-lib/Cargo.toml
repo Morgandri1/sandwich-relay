@@ -33,3 +33,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
+byteorder = "1.4"
+hex = "0.4"
+lazy_static = "1.4.0"

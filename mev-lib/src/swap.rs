@@ -3,7 +3,7 @@ use std::sync::Arc;
 use solana_sdk::{signature::Keypair, transaction::VersionedTransaction};
 
 use crate::{
-    comp::SwapProviders, math::calculate_swap_input_output, raydium::subscribe::PoolKeys, result::{MevError, MevResult}, tx::get_pool_keys_from_target, SwapArgs
+    comp::SwapProviders, math::calculate_swap_input_output, raydium::subscribe::PoolKeys, result::{MevError, MevResult}, SwapArgs
 };
 
 pub fn buy_router(provider: SwapProviders, target_tx: VersionedTransaction, signer: Arc<Keypair>, priority_fee_lamports: u64) -> MevResult<VersionedTransaction> {
@@ -17,7 +17,7 @@ pub fn buy_router(provider: SwapProviders, target_tx: VersionedTransaction, sign
         priority_fee_lamports,
         target_tx_blockhash: *target_tx.message.recent_blockhash(),
         expected_output: output,
-        pool_keys: get_pool_keys_from_target(&target_tx)?,
+        pool_keys: todo!(),
     };
     match provider {
         SwapProviders::Raydium => crate::raydium::swap::buy(args),
