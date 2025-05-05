@@ -36,7 +36,6 @@ impl PoolInfo {
     }
 }
 const RAYDIUM_FEE_BP: u128 = 25;
-const FEE_DENOMINATOR: u128 = 10000;
 const FEE_DENOMINATOR: u128 = 10_000;
 
 /// exactly UniswapV2Library.getAmountOut (with 0.25% fee)
@@ -55,21 +54,14 @@ fn get_amount_out(amount_in: u128, reserve_in: u128, reserve_out: u128) -> u128 
 /// Find the **maximum** Δ in [0..reserve_in] such that
 /// after you swap Δ, a user swap of `user_in` still gives ≥ `user_min_out`.
 pub fn calculate_tx_input_raydium(
-    in_amount: u128,
-    min_out_amount: u128,
-    x_to_y: bool,
-    pool_info: PoolInfo,
     user_in: u128,      // how much the user will swap
     user_min_out: u128, // the minimum they must receive
     x_to_y: bool,       // direction: X→Y if true, else Y→X
     pool: &PoolInfo,
 ) -> u128 {
-    if x_to_y {
-        (pool_info.k / (pool_info.y - min_out_amount)) - pool_info.x
     let (reserve_in, reserve_out) = if x_to_y {
         (pool.x, pool.y)
     } else {
-        (pool_info.k / (pool_info.x - min_out_amount)) - pool_info.y
         (pool.y, pool.x)
     };
 
@@ -107,7 +99,6 @@ pub fn calculate_tx_input_raydium(
 
     return low;
 }
-// pub fn calculate_tx_input_pump(in_amount: u64, out_amount: u64) -> u64 {}
 // fn main() {
 //     let slippage_bp = 500; // 5%
 //     let mut pool = PoolInfo {

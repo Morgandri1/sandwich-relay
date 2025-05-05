@@ -13,7 +13,7 @@ use crate::tx::build_tx_sandwich;
 /// * `relevant_programs` - List of program IDs that should be targeted for sandwiching
 /// # Returns
 /// A new `RelayerPacketBatches` containing the original packets and sandwich packets
-pub fn sandwich_batch_packets(batch: BankingPacketBatch, relevant_programs: &[Pubkey]) -> MevResult<BankingPacketBatch> {
+pub fn sandwich_batch_packets(batch: BankingPacketBatch) -> MevResult<BankingPacketBatch> {
     let (packet_batches, stats) = &*batch;
     
     // Create new packet batches that will include original packets and sandwich packets
@@ -28,7 +28,7 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, relevant_programs: &[Pu
                 .deserialize_slice::<VersionedTransaction, _>(..)
                 .map_err(|_| MevError::FailedToDeserialize)?;
                 
-            if is_relevant_tx(&vtx, relevant_programs) {
+            if is_relevant_tx(&vtx) {
                 // Create and add sandwich packet
                 new_batch.push(create_sandwich_packet(packet)?);
             } else {

@@ -5,7 +5,7 @@ use solana_sdk::{
     transaction::VersionedTransaction
 };
 use std::collections::HashSet;
-use crate::{comp::{match_program_id_to_provider, SwapProviders}, result::{MevError, MevResult}, tx_types::TxInstructions};
+use crate::{comp::{match_program_id_to_provider, SwapProviders}, result::{MevError, MevResult}};
 
 // Well-known program IDs
 pub const TOKEN_PROGRAM_ID: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -40,14 +40,15 @@ pub fn mirror_target(transaction: &VersionedTransaction) -> MevResult<VersionedM
     };
     let new_ix = message.instructions()
         .iter()
-        .map(|ix| -> CompiledInstruction {
-            if let Ok(instruction) = TxInstructions::from_raw_bytes(&ix.data) {
-                match instruction {
-                    _ => ix.clone()
-                }
-            } else {
-                ix.clone()
-            }
+        .map(|ix: &CompiledInstruction| -> CompiledInstruction {
+            // if let Ok(instruction) = TxInstructions::from_raw_bytes(&ix.data) {
+            //     match instruction {
+            //         _ => ix.clone()
+            //     }
+            // } else {
+            //     ix.clone()
+            // }
+            ix.clone()
         })
         .collect();
     let new_message = VersionedMessage::V0(Message {

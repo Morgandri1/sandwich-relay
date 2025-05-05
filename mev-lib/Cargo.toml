@@ -1,7 +1,9 @@
 [package]
 name = "mev-lib"
+authors = [
+    "Morgan Metz <morgan.metz@eyekon.xyz>",
+]
 version.workspace = true
-authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 license.workspace = true
