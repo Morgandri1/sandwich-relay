@@ -5,7 +5,7 @@ use super::super::Account;
 
 pub const LPV4_SWAP: Pubkey = Pubkey::from_str_const("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParsedRaydiumLpv4Instructions {
     /// 0
     Swap {

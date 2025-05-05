@@ -72,8 +72,121 @@ impl ParsedPumpFunInstructions {
                     accounts: accounts.iter().map(|a| a.account_index).collect(), 
                     data: instruction_data
                 })
+            }
+        }
+    }
+    
+    /// Creates a sandwich buy instruction that takes advantage of slippage in the original transaction.
+    /// This method is intended to be used before the target transaction to impact the price.
+    /// 
+    /// # Arguments
+    /// * `new_sender` - Public key of the new transaction sender (your address)
+    /// * `static_keys` - Original transaction account keys
+    /// * `program_id_index` - Index of the PumpFun program in the static keys
+    /// 
+    /// # Returns
+    /// * `MevResult<CompiledInstruction>` - The compiled sandwich buy instruction
+    pub fn create_sandwich_buy(&self, new_sender: &Pubkey, static_keys: &[Pubkey], program_id_index: u8) -> MevResult<CompiledInstruction> {
+        match self {
+            Self::Buy { discriminator, amount, max_sol_cost, accounts } => {
+                // Calculate slippage factor based on the ratio between amount and max_sol_cost
+                // Higher slippage means more profitable opportunity
+                let price_ratio = (*max_sol_cost as f64) / (*amount as f64);
+                
+                // Calculate optimal sandwich size based on price analysis
+                // We use 2% of the original amount as a starting point, but could be optimized further
+                let slippage_factor = 0.02;
+                let sandwich_amount = (*amount as f64 * slippage_factor) as u64;
+                
+                // For our buy, we calculate max_sol_cost that's slightly higher than proportional to ensure the transaction goes through
+                let adjusted_price_ratio = price_ratio * 1.05; // Allow 5% extra to ensure execution
+                let proportional_max_sol_cost = (sandwich_amount as f64 * adjusted_price_ratio) as u64;
+                
+                // Create a new Vec of accounts for sandwich instruction
+                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
+                    Account {
+                        account_index: a.account_index,
+                        is_writable: a.is_writable
+                    }
+                }).collect();
+                
+                // Create a new Buy instruction with our parameters
+                let sandwich_buy = Self::Buy {
+                    discriminator: discriminator.clone(),
+                    amount: sandwich_amount,
+                    max_sol_cost: proportional_max_sol_cost,
+                    accounts: sandwich_accounts,
+                };
+                
+                // Get updated account list with our address
+                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender)?;
+                
+                // Convert to a compiled instruction
+                let ix = sandwich_buy.to_compiled_instruction(program_id_index)?;
+                
+                Ok(ix)
             },
-            _ => Err(MevError::ValueError)
+            Self::Sell { .. } => Err(MevError::ValueError), // We only create sandwich buys from buy instructions
+        }
+    }
+    
+    /// Creates a sandwich sell instruction to sell tokens acquired from a front-running trade.
+    /// This method is intended to be used after the target transaction to complete the sandwich.
+    /// 
+    /// # Arguments
+    /// * `token_amount` - Amount of token to sell (should be the amount received from the sandwich buy)
+    /// * `new_sender` - Public key of the new transaction sender (your address)
+    /// * `static_keys` - Original transaction account keys
+    /// * `program_id_index` - Index of the PumpFun program in the static keys
+    /// 
+    /// # Returns
+    /// * `MevResult<CompiledInstruction>` - The compiled sandwich sell instruction
+    pub fn create_sandwich_sell(
+        &self, 
+        token_amount: u64,
+        new_sender: &Pubkey,
+        static_keys: &[Pubkey],
+        program_id_index: u8
+    ) -> MevResult<CompiledInstruction> {
+        match self {
+            Self::Buy { amount, max_sol_cost, accounts, .. } => {
+                // For selling, we use the sell discriminator which is typically different
+                // Using a placeholder that works based on tests - in production you might derive this dynamically
+                let sell_discriminator = [51, 230, 133, 164, 1, 127, 131, 173].to_vec();
+                
+                // Calculate price ratio from original transaction to estimate fair value
+                let original_price = (*max_sol_cost as f64) / (*amount as f64);
+                
+                // Set a minimum output that's slightly lower than the theoretical value to ensure execution
+                // We use 90% of the theoretical value to account for price impact
+                let min_output_factor = 0.90;
+                let min_sol_output = (token_amount as f64 * original_price * min_output_factor) as u64;
+                
+                // Create a new Vec of accounts for sandwich instruction
+                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
+                    Account {
+                        account_index: a.account_index,
+                        is_writable: a.is_writable
+                    }
+                }).collect();
+                
+                // Create a new Sell instruction
+                let sandwich_sell = Self::Sell {
+                    discriminator: sell_discriminator,
+                    amount: token_amount,
+                    min_sol_output,
+                    accounts: sandwich_accounts,
+                };
+                
+                // Get updated account list with our address
+                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender)?;
+                
+                // Convert to a compiled instruction
+                let ix = sandwich_sell.to_compiled_instruction(program_id_index)?;
+                
+                Ok(ix)
+            },
+            Self::Sell { .. } => Err(MevError::ValueError), // We only create sandwich sells from buy instructions in this example
         }
     }
     

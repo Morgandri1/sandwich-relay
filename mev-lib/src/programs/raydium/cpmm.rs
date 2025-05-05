@@ -87,6 +87,187 @@ impl ParsedRaydiumCpmmInstructions {
         }
     }
     
+    /// Creates a sandwich buy instruction that takes advantage of slippage in the original transaction.
+    /// This method is intended to be used before the target transaction to impact the price.
+    /// 
+    /// # Arguments
+    /// * `new_sender` - Public key of the new transaction sender (your address)
+    /// * `static_keys` - Original transaction account keys
+    /// * `program_id_index` - Index of the Raydium CPMM program in the static keys
+    /// * `swap_in_out` - Whether to swap the input and output tokens
+    /// 
+    /// # Returns
+    /// * `MevResult<CompiledInstruction>` - The compiled sandwich buy instruction
+    pub fn create_sandwich_buy(&self, new_sender: &Pubkey, static_keys: &[Pubkey], program_id_index: u8, swap_in_out: bool) -> MevResult<CompiledInstruction> {
+        match self {
+            Self::SwapIn { extra, amount, min_amount_out, accounts } => {
+                // Calculate optimal sandwich size based on price analysis
+                // Higher slippage means more profitable opportunity
+                let price_ratio = (*min_amount_out as f64) / (*amount as f64);
+                
+                // Use 15% of the original amount as our sandwich size
+                let slippage_factor = 0.15;
+                let sandwich_amount = (*amount as f64 * slippage_factor) as u64;
+                
+                // Set a very low min_amount_out to ensure our transaction executes
+                // We accept 90% of the theoretical output to ensure execution
+                let min_output_factor = 0.9;
+                let sandwich_min_out = (sandwich_amount as f64 * price_ratio * min_output_factor) as u64;
+                
+                // Create a new Vec of accounts for sandwich instruction
+                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
+                    Account {
+                        account_index: a.account_index,
+                        is_writable: a.is_writable
+                    }
+                }).collect();
+                
+                // Create a new SwapIn instruction with our parameters
+                let sandwich_swap = Self::SwapIn {
+                    extra: extra.clone(),
+                    amount: sandwich_amount,
+                    min_amount_out: sandwich_min_out,
+                    accounts: sandwich_accounts,
+                };
+                
+                // Get updated account list with our address
+                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender, swap_in_out)?;
+                
+                // Convert to a compiled instruction
+                let ix = sandwich_swap.to_compiled_instruction(program_id_index)?;
+                
+                Ok(ix)
+            },
+            Self::SwapOut { extra, max_amount_in, amount_out, accounts } => {
+                // Calculate price ratio
+                let price_ratio = (*max_amount_in as f64) / (*amount_out as f64);
+                
+                // Use 15% of the original amount as our sandwich size
+                let slippage_factor = 0.15;
+                let sandwich_out = (*amount_out as f64 * slippage_factor) as u64;
+                
+                // Set max_amount_in with some extra margin (10%) to ensure transaction executes
+                let sandwich_max_in = (sandwich_out as f64 * price_ratio * 1.1) as u64;
+                
+                // Create a new Vec of accounts for sandwich instruction
+                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
+                    Account {
+                        account_index: a.account_index,
+                        is_writable: a.is_writable
+                    }
+                }).collect();
+                
+                // Create a new SwapOut instruction with our parameters
+                let sandwich_swap = Self::SwapOut {
+                    extra: extra.clone(),
+                    max_amount_in: sandwich_max_in,
+                    amount_out: sandwich_out,
+                    accounts: sandwich_accounts,
+                };
+                
+                // Get updated account list with our address
+                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender, swap_in_out)?;
+                
+                // Convert to a compiled instruction
+                let ix = sandwich_swap.to_compiled_instruction(program_id_index)?;
+                
+                Ok(ix)
+            }
+        }
+    }
+    
+    /// Creates a sandwich sell instruction to sell tokens acquired from a front-running trade.
+    /// This method is intended to be used after the target transaction to complete the sandwich.
+    /// 
+    /// # Arguments
+    /// * `token_amount` - Amount of token to sell (should be the amount received from the sandwich buy)
+    /// * `new_sender` - Public key of the new transaction sender (your address)
+    /// * `static_keys` - Original transaction account keys
+    /// * `program_id_index` - Index of the Raydium CPMM program in the static keys
+    /// * `swap_in_out` - Whether to swap the input and output tokens
+    /// 
+    /// # Returns
+    /// * `MevResult<CompiledInstruction>` - The compiled sandwich sell instruction
+    pub fn create_sandwich_sell(
+        &self, 
+        token_amount: u64,
+        new_sender: &Pubkey,
+        static_keys: &[Pubkey],
+        program_id_index: u8,
+        swap_in_out: bool
+    ) -> MevResult<CompiledInstruction> {
+        match self {
+            Self::SwapIn { extra, amount, min_amount_out, accounts } => {
+                // Calculate the original price ratio
+                let original_price = (*min_amount_out as f64) / (*amount as f64);
+                
+                // When selling, we want to maximize our output while ensuring execution
+                // Accept 90% of the theoretical value
+                let min_output_factor = 0.9;
+                let min_out = (token_amount as f64 * original_price * min_output_factor) as u64;
+                
+                // Create a new Vec of accounts for sandwich instruction, but we need to reverse the direction
+                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
+                    Account {
+                        account_index: a.account_index,
+                        is_writable: a.is_writable
+                    }
+                }).collect();
+                
+                // Create a new SwapIn instruction with our parameters - direction is reversed from buy
+                let sandwich_swap = Self::SwapIn {
+                    extra: extra.clone(),
+                    amount: token_amount,
+                    min_amount_out: min_out,
+                    accounts: sandwich_accounts,
+                };
+                
+                // Get updated account list with our address
+                // Note: We use !swap_in_out to reverse the direction compared to our buy
+                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender, !swap_in_out)?;
+                
+                // Convert to a compiled instruction
+                let ix = sandwich_swap.to_compiled_instruction(program_id_index)?;
+                
+                Ok(ix)
+            },
+            Self::SwapOut { extra, max_amount_in, amount_out, accounts } => {
+                // Calculate the original price ratio
+                let original_price = (*max_amount_in as f64) / (*amount_out as f64);
+                
+                // For our sell, we want to get a specific amount out while keeping the max in reasonable
+                // We'll add 10% margin to ensure execution
+                let max_in_factor = 1.1;
+                let max_in = (token_amount as f64 * original_price * max_in_factor) as u64;
+                
+                // Create a new Vec of accounts for sandwich instruction
+                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
+                    Account {
+                        account_index: a.account_index,
+                        is_writable: a.is_writable
+                    }
+                }).collect();
+                
+                // Create a new SwapOut instruction with our parameters - direction is reversed from buy
+                let sandwich_swap = Self::SwapOut {
+                    extra: extra.clone(),
+                    max_amount_in: max_in,
+                    amount_out: token_amount,
+                    accounts: sandwich_accounts,
+                };
+                
+                // Get updated account list with our address
+                // Note: We use !swap_in_out to reverse the direction compared to our buy
+                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender, !swap_in_out)?;
+                
+                // Convert to a compiled instruction
+                let ix = sandwich_swap.to_compiled_instruction(program_id_index)?;
+                
+                Ok(ix)
+            }
+        }
+    }
+    
     pub fn mint_in(&self, static_keys: &[Pubkey], swap_in_out: bool) -> Pubkey {
         match self {
             Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => {

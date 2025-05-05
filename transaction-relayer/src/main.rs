@@ -145,6 +145,10 @@ struct Args {
     /// Path to keypair file used to authenticate with the backend.
     #[arg(long, env)]
     keypair_path: PathBuf,
+    
+    /// Path to keypair file used to authenticate with the backend.
+    #[arg(long, env)]
+    mev_pair_path: PathBuf,
 
     /// Validators allowed to authenticate and connect to the relayer, comma separated.
     /// If null then all validators on the leader schedule shall be permitted.
@@ -394,6 +398,7 @@ fn main() {
 
     let keypair =
         Arc::new(read_keypair_file(args.keypair_path).expect("keypair file does not exist"));
+    let mev_pair = read_keypair_file(args.mev_pair_path).expect("MEV signer file does not exist");
     solana_metrics::set_host_id(format!(
         "{}_{}",
         hostname::get().unwrap().to_str().unwrap(), // hostname should follow RFC1123
@@ -490,7 +495,8 @@ fn main() {
         block_engine_sender,
         1,
         args.disable_mempool,
-        &exit
+        &exit,
+        mev_pair
     );
 
     let is_connected_to_block_engine = Arc::new(AtomicBool::new(false));

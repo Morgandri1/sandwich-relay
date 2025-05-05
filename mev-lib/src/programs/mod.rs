@@ -24,7 +24,7 @@ use solana_sdk::{
 
 use crate::result::MevResult;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Account {
     pub account_index: u8,
     pub is_writable: bool
