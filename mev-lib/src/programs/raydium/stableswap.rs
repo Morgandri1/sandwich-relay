@@ -3,19 +3,20 @@ use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 use crate::result::{MevError, MevResult};
 use super::super::Account;
 
-pub const LPV4_SWAP: Pubkey = Pubkey::from_str_const("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
+pub const STABLE_SWAP_PROGRAM_ID: Pubkey = Pubkey::from_str_const("5quBtoiQqxF9Jv6KYKctB59NT3gtJD2Y65kdnB1Uev3h");
 
 #[derive(Debug, PartialEq)]
-pub enum ParsedRaydiumLpv4Instructions {
+pub enum ParsedRaydiumStableSwapInstructions {
     /// 0
     Swap {
+        instruction: u8,
         amount_in: u64,
         minimum_amount_out: u64,
         accounts: Vec<Account>
     }
 }
 
-impl ParsedRaydiumLpv4Instructions {
+impl ParsedRaydiumStableSwapInstructions {
     pub fn from_bytes(bytes: Vec<u8>, accounts: Vec<Account>) -> MevResult<Self> {
         if bytes.len() <= 16 {
             return Err(crate::result::MevError::FailedToDeserialize);
@@ -28,6 +29,7 @@ impl ParsedRaydiumLpv4Instructions {
         min_out_bytes[..8].copy_from_slice(&bytes[9..17]);
         
         return Ok(Self::Swap {
+            instruction: bytes[0],
             amount_in: u64::from_le_bytes(amount_in_bytes),
             minimum_amount_out: u64::from_le_bytes(min_out_bytes),
             accounts
@@ -36,8 +38,8 @@ impl ParsedRaydiumLpv4Instructions {
     
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
-            Self::Swap { amount_in, minimum_amount_out, accounts } => {
-                let mut instruction_data = [].to_vec();
+            Self::Swap { amount_in, minimum_amount_out, accounts, instruction } => {
+                let mut instruction_data = [*instruction].to_vec();
                 instruction_data.extend_from_slice(&amount_in.to_le_bytes());
                 instruction_data.extend_from_slice(&minimum_amount_out.to_le_bytes());
                 return Ok(CompiledInstruction { 
@@ -58,15 +60,15 @@ impl ParsedRaydiumLpv4Instructions {
                     .map(|k| {
                         if k == &static_keys[0] { // swap signer
                             return *new_sender
-                        } else if k == &static_keys[accounts[15].account_index as usize] { // swap output account
+                        } else if k == &static_keys[accounts[6].account_index as usize] { // swap output account
                             return spl_associated_token_account::get_associated_token_address(
                                 new_sender, 
-                                &static_keys[accounts[16].account_index as usize]
+                                &static_keys[accounts[9].account_index as usize]
                             )
-                        } else if k == &static_keys[accounts[16].account_index as usize] { // swap input account
+                        } else if k == &static_keys[accounts[5].account_index as usize] { // swap input account
                             return spl_associated_token_account::get_associated_token_address(
                                 new_sender, 
-                                &static_keys[accounts[15].account_index as usize]
+                                &static_keys[accounts[10].account_index as usize]
                             )
                         } else if swap_in_out && k == &static_keys[accounts[9].account_index as usize] { // swap mint in
                             return static_keys[accounts[10].account_index as usize]
@@ -85,20 +87,21 @@ impl ParsedRaydiumLpv4Instructions {
 #[cfg(test)]
 mod test {
     use crate::programs::Account;
-    use super::ParsedRaydiumLpv4Instructions;
+    use super::ParsedRaydiumStableSwapInstructions;
 
     #[test]
-    fn deserialize_lpv4_instruction() {
-        let sample_ix = [9, 16, 39, 0, 0, 0, 0, 0, 0, 34, 115, 182, 0, 0, 0, 0, 0].to_vec();
+    fn deserialize_stableswap_instruction() {
+        let sample_ix = [9, 160, 134, 1, 0, 0, 0, 0, 0, 231, 50, 1, 0, 0, 0, 0, 0].to_vec();
         let key_i: Vec<u8> = [16, 3, 20, 4, 5, 6, 7, 21, 8, 9, 10, 11, 12, 13, 22, 2, 14, 1].to_vec();
         assert_eq!(
-            ParsedRaydiumLpv4Instructions::from_bytes(
+            ParsedRaydiumStableSwapInstructions::from_bytes(
                 sample_ix, 
                 key_i.iter().map(|i| Account::new(i, false)).collect()
             ).unwrap(),
-            ParsedRaydiumLpv4Instructions::Swap {
-                amount_in: 10000,
-                minimum_amount_out: 11957026,
+            ParsedRaydiumStableSwapInstructions::Swap {
+                instruction: 9,
+                amount_in: 100000,
+                minimum_amount_out: 78567,
                 accounts: key_i.iter().map(|i| Account::new(i, false)).collect()
             }
         )

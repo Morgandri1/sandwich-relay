@@ -2,7 +2,7 @@ use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 
 use crate::{programs::Account, result::MevResult};
 
-pub const RAYDIUM_AMM_PROGRAM_ID: Pubkey = Pubkey::from_str_const("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C");
+pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey = Pubkey::from_str_const("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK");
 
 pub enum RaydiumClmmInstructions {
     
@@ -45,7 +45,7 @@ impl ParsedRaydiumClmmInstructions {
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
             Self::Swap { amount, other_amount_threshold, accounts, sqrt_price_limit_64, is_base_input } => {
-                let mut instruction_data = [0u8].to_vec();
+                let mut instruction_data = [].to_vec();
                 instruction_data.extend_from_slice(&amount.to_le_bytes());
                 instruction_data.extend_from_slice(&other_amount_threshold.to_le_bytes());
                 instruction_data.extend_from_slice(&sqrt_price_limit_64.to_le_bytes());
@@ -99,10 +99,10 @@ impl ParsedRaydiumClmmInstructions {
                                 new_sender, 
                                 &self.mint_out(static_keys, swap_in_out)
                             )
-                        } else if swap_in_out && k == &static_keys[accounts[8].account_index as usize] { // swap mint in
-                            return static_keys[accounts[9].account_index as usize]
-                        } else if swap_in_out && k == &static_keys[accounts[9].account_index as usize] { // swap mint out
-                            return static_keys[accounts[8].account_index as usize]
+                        } else if swap_in_out && k == &self.mint_in(static_keys, false) { // swap mint in
+                            return self.mint_in(static_keys, true)
+                        } else if swap_in_out && k == &self.mint_out(static_keys, false) { // swap mint out
+                            return self.mint_out(static_keys, true)
                         } else {
                             return *k
                         }
@@ -115,26 +115,46 @@ impl ParsedRaydiumClmmInstructions {
 
 #[cfg(test)]
 mod test {
+    use solana_sdk::pubkey::Pubkey;
+
     use crate::programs::{raydium::ParsedRaydiumClmmInstructions, Account};
 
     #[test]
     fn deserialize_clmm_instruction() {
-        let ix = [
-            1, 132, 183, 67, 17, 0, 0, 0, // amount
-            0, 94, 175, 176, 155, 27, 0, 0, // otherAmountThreshold
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // sqrtPriceLimitX64
-            0 // isBaseInput
-        ].to_vec();
+        let ix = [1, 150, 155, 13, 34, 0, 0, 0, 0, 24, 103, 28, 250, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].to_vec();
         let accounts = [17, 20, 18, 19, 0, 16, 1, 3, 2, 4, 5, 6, 7, 8, 9, 15, 10, 11, 12];
+        let target = ParsedRaydiumClmmInstructions::from_bytes(ix, accounts.iter().map(|i| Account::new(i, false)).collect()).unwrap();
+        let static_keys: Vec<Pubkey> = [
+            "Fc8kDysBQxfk284j3LmDEeseuYChtwH44xaSa1h94nSu", 
+            "HiED8abKmmAbVNSRrcwnahCdeu1SrD7EzrzXohuutLBv", 
+            "So11111111111111111111111111111111111111112", 
+            "F2Qn1rpQYbMW9ds8UP3ZCKjgGPVqa7UyDBVjzZ9hXJds", 
+            "3Ubp2dXJ9X5oueMjpEeUHHDn7Vs31ZNLNd1YU9F2HT5h", 
+            "3XCQJQryqpDvvZBfGxR7CLAw5dpGJ9aa7kt1jRLdyxuZ", 
+            "3ffQUUvRV76RvNebfamEHiaD4a8sSTKfMoaDpK3scjSG", 
+            "2PmU7H9H45dnCbuMEEFdFXW1nv9TnaFoNr8YmSunWxvU", 
+            "Eb4pBstAacBPz72gG9QCGa1SYvhucB8GGgz9koNRvszE", 
+            "6pEVfpFab3vBJNbWtSUo7rTPGQbiiu1RpKKfx48RLj1w", 
+            "7e7d7G8EFLJ2ENAysxVn7ZF1XegXf3Qq8UZhQtbhgRV4", 
+            "4PWF4ZqTY2r4eNDMoEmg9nz9iyjTbWjBPeeJ6imvqq6D", 
+            "7WuwJowbtpih5sEaA5131z3TfuUFPwNWqiAfgCLJJJec", 
+            "ComputeBudget111111111111111111111111111111", 
+            "routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS", 
+            "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+        ].iter().map(|k| Pubkey::from_str_const(k)).collect();
         assert_eq!(
-            ParsedRaydiumClmmInstructions::from_bytes(ix, accounts.iter().map(|i| Account::new(i, false)).collect()).unwrap(),
+            target, 
             ParsedRaydiumClmmInstructions::Swap { 
-                amount: 118576164702, 
-                other_amount_threshold: 289650564, 
+                amount: 124455249688, 
+                other_amount_threshold: 571317142, 
                 accounts: accounts.iter().map(|i| Account::new(i, false)).collect(), 
                 sqrt_price_limit_64: 0, 
                 is_base_input: false
             }
-        )
+        );
+        assert_eq!(
+            target.mint_out(static_keys.as_slice(), true),
+            Pubkey::from_str_const("So11111111111111111111111111111111111111112")
+        );
     }
 }
