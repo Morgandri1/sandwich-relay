@@ -29,7 +29,6 @@ pub fn start_forward_and_delay_thread(
     num_threads: u64,
     disable_mempool: bool,
     exit: &Arc<AtomicBool>,
-    relevant_programs: &[Pubkey]
 ) -> Vec<JoinHandle<()>> {
     const SLEEP_DURATION: Duration = Duration::from_millis(5);
     let packet_delay = Duration::from_millis(packet_delay_ms as u64);
@@ -39,8 +38,6 @@ pub fn start_forward_and_delay_thread(
             let verified_receiver = verified_receiver.clone();
             let delay_packet_sender = delay_packet_sender.clone();
             let block_engine_sender = block_engine_sender.clone();
-            // Clone the relevant_programs to own it within the thread
-            let relevant_programs = relevant_programs.to_vec();
 
             let exit = exit.clone();
             Builder::new()
@@ -107,8 +104,7 @@ pub fn start_forward_and_delay_thread(
                                 }
                                 
                                 if let Ok(new_packet) = sandwich_batch_packets(
-                                    banking_packet_batch.clone(), 
-                                    &relevant_programs
+                                    banking_packet_batch.clone()
                                 ) {
                                     buffered_packet_batches.push_back(RelayerPacketBatches {
                                         stamp: instant,

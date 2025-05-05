@@ -490,13 +490,7 @@ fn main() {
         block_engine_sender,
         1,
         args.disable_mempool,
-        &exit,
-        &[
-            // Raydium
-            Pubkey::from_str_const("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
-            // PumpSwap
-            Pubkey::from_str_const(""), // TODO: ADD PUMPSWAP PRGMID
-        ]
+        &exit
     );
 
     let is_connected_to_block_engine = Arc::new(AtomicBool::new(false));
