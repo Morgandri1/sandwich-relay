@@ -1,6 +1,6 @@
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 
-use crate::result::{MevError, MevResult};
+use crate::{result::{MevError, MevResult}, rpc::get_mint_of_account};
 use super::super::Account;
 
 pub const LPV4_SWAP: Pubkey = Pubkey::from_str_const("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8");
@@ -53,30 +53,33 @@ impl ParsedRaydiumLpv4Instructions {
     pub fn mutate_accounts(&self, static_keys: &[Pubkey], new_sender: &Pubkey, swap_in_out: bool) -> MevResult<Vec<Pubkey>> {
         match self {
             Self::Swap { accounts, .. } => {
-                Ok(static_keys
+                let mint_in = get_mint_of_account(&static_keys[accounts[5].account_index as usize])?;
+                let mint_out = get_mint_of_account(&static_keys[accounts[6].account_index as usize])?;
+                let mut i: Vec<Pubkey> = static_keys
                     .iter()
                     .map(|k| {
                         if k == &static_keys[0] { // swap signer
                             return *new_sender
-                        } else if k == &static_keys[accounts[15].account_index as usize] { // swap output account
+                        } else if k == &static_keys[accounts[15].account_index as usize] { // swap input account
                             return spl_associated_token_account::get_associated_token_address(
                                 new_sender, 
-                                &static_keys[accounts[16].account_index as usize]
+                                &mint_in
                             )
-                        } else if k == &static_keys[accounts[16].account_index as usize] { // swap input account
+                        } else if k == &static_keys[accounts[16].account_index as usize] { // swap output account
                             return spl_associated_token_account::get_associated_token_address(
                                 new_sender, 
-                                &static_keys[accounts[15].account_index as usize]
+                                &mint_out
                             )
-                        } else if swap_in_out && k == &static_keys[accounts[9].account_index as usize] { // swap mint in
-                            return static_keys[accounts[10].account_index as usize]
-                        } else if swap_in_out && k == &static_keys[accounts[10].account_index as usize] { // swap mint out
-                            return static_keys[accounts[9].account_index as usize]
                         } else {
                             return *k
                         }
                     })
-                    .collect())
+                    .collect();
+                if swap_in_out {
+                    i.swap(5, 6); // swap pool token accounts
+                    i.swap(12, 13); // swap sereum market accounts
+                }
+                Ok(i)
             }
         }
     }
