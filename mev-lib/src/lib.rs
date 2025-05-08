@@ -8,6 +8,7 @@ mod swap;
 mod raydium;
 mod math;
 mod programs;
+mod rpc;
 
 use crate::raydium::subscribe::PoolKeys;
 use solana_sdk::{
