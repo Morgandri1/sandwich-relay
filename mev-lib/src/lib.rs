@@ -4,11 +4,11 @@ mod comp;
 mod packets;
 #[cfg(test)]
 mod test;
-mod swap;
 mod raydium;
 mod math;
 mod programs;
 mod rpc;
+mod jito;
 
 use crate::raydium::subscribe::PoolKeys;
 use solana_sdk::{
@@ -27,3 +27,4 @@ pub struct SwapArgs {
 }
 
 pub use packets::*;
+pub use comp::contains_jito_tip;

@@ -42,7 +42,7 @@ impl Account {
 
 pub enum ParsedInstruction {
     RaydiumLpv4(MevResult<ParsedRaydiumLpv4Instructions>),
-    RaydiumRouter(MevResult<ParsedRaydiumRouterInstructions>),
+    // RaydiumRouter(MevResult<ParsedRaydiumRouterInstructions>),
     RaydiumClmm(MevResult<ParsedRaydiumClmmInstructions>),
     RaydiumStable(MevResult<ParsedRaydiumStableSwapInstructions>),
     RaydiumCpmm(MevResult<ParsedRaydiumCpmmInstructions>),
@@ -59,6 +59,7 @@ impl ParsedInstruction {
         let res = match (program_id, ix.data[0]) {
             (LPV4_SWAP, 0) => Self::RaydiumLpv4(ParsedRaydiumLpv4Instructions::from_bytes(bytes, accounts)),
             // (ROUTER_PROGRAM_ID, 0) => Self::RaydiumRouter(ParsedRaydiumRouterInstructions::from_bytes(bytes, accounts)),
+            (STABLE_SWAP_PROGRAM_ID, 9) => Self::RaydiumStable(ParsedRaydiumStableSwapInstructions::from_bytes(bytes, accounts)),
             (RAYDIUM_CLMM_PROGRAM_ID, 1) => Self::RaydiumClmm(ParsedRaydiumClmmInstructions::from_bytes(bytes, accounts)),
             (RAYDIUM_CPMM_PROGRAM_ID, 143 | 55) => Self::RaydiumCpmm(ParsedRaydiumCpmmInstructions::from_bytes(bytes, accounts)),
             (PUMPFUN_PROGRAM_ID, 102 | 51) => Self::PumpFun(ParsedPumpFunInstructions::from_bytes(bytes, accounts)),

@@ -7,6 +7,7 @@ use solana_sdk::{
     signature::Keypair,
     signer::Signer
 };
+use crate::contains_jito_tip;
 use crate::result::{MevResult, MevError};
 use crate::comp::is_relevant_tx;
 use crate::tx::build_tx_sandwich;
@@ -27,13 +28,12 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
         // Create a new packet batch with additional capacity for sandwich packets
         // Each swap transaction might become 3 transactions (front-run, original, back-run)
         let mut new_batch = PacketBatch::with_capacity(packet_batch.len() * 3);
-
         for packet in packet_batch.iter() {
             // Try to deserialize the packet into a transaction
             match packet.deserialize_slice::<VersionedTransaction, _>(..) {
                 Ok(vtx) => {
                     // Check if this transaction is relevant for sandwiching
-                    if is_relevant_tx(&vtx) {
+                    if is_relevant_tx(&vtx) && !contains_jito_tip(&vtx) {
                         // Create sandwich packets around the original transaction using our keypair
                         match create_sandwich_packet(packet, keypair) {
                             Ok(sandwich_packets) => {

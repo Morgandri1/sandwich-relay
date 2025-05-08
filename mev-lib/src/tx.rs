@@ -4,8 +4,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     transaction::VersionedTransaction
 };
-use std::collections::HashSet;
-use crate::{comp::{match_program_id_to_provider, SwapProviders}, programs::ParsedInstruction, result::{MevError, MevResult}};
+use crate::{programs::ParsedInstruction, result::{MevError, MevResult}};
 
 // Well-known program IDs
 pub const TOKEN_PROGRAM_ID: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -408,49 +407,6 @@ fn construct_mirror_ix(
     }
 }
 
-/// Find token mint addresses being interacted with in a VersionedMessage
-/// 
-/// This function analyzes a transaction message to identify token mint addresses
-/// that are being interacted with through token transfers, swaps, or other operations.
-/// 
-/// # Arguments
-/// * `message` - The VersionedMessage to analyze
-/// 
-/// # Returns
-/// A Result containing a vector of Pubkeys for token mint addresses
-pub fn find_token_addresses(message: &VersionedMessage) -> MevResult<Vec<Pubkey>> {
-    let mut token_addresses = HashSet::new();
-    
-    let account_keys = message.static_account_keys();
-    
-    // Process each instruction to find token addresses
-    for ix in message.instructions() {
-        // Get the program ID for this instruction
-        let program_id = if ix.program_id_index as usize >= account_keys.len() {
-            continue;
-        } else {
-            account_keys[ix.program_id_index as usize]
-        };
-        
-        match match_program_id_to_provider(&program_id) {
-            Some(SwapProviders::Raydium) => {
-                token_addresses.insert(account_keys[ix.accounts[17] as usize]);
-                token_addresses.insert(account_keys[ix.accounts[18] as usize]);
-            },
-            Some(SwapProviders::PumpFun) => {
-                token_addresses.insert(account_keys[ix.accounts[2] as usize]);
-            },
-            Some(SwapProviders::PumpSwap) => {
-                token_addresses.insert(account_keys[ix.accounts[3] as usize]);
-                token_addresses.insert(account_keys[ix.accounts[4] as usize]);
-            },
-            _ => continue
-        }
-    }
-    
-    Ok(token_addresses.into_iter().collect())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,49 +552,5 @@ mod tests {
         let accounts = mirrored_message.static_account_keys();
         assert!(accounts.contains(&sandwich_keypair.pubkey()), 
                "Expected sandwich pubkey in message accounts");
-    }
-    
-    #[test]
-    fn test_find_token_addresses() {
-        // We need to set up a test with indexes that match what's expected in find_token_addresses
-        let payer = Keypair::new();
-        let pump_program = PUMPFUN_PROGRAM_ID;
-        
-        // Create dummy pubkeys for testing
-        let token_mint = Pubkey::new_unique();
-        
-        // Create a simple instruction that looks like a PumpFun buy/sell
-        let accounts = vec![
-            AccountMeta::new(payer.pubkey(), true),   // 0: Signer
-            AccountMeta::new_readonly(Pubkey::new_unique(), false), // 1
-            AccountMeta::new(token_mint, false),      // 2: Token mint
-            AccountMeta::new(Pubkey::new_unique(), false), // 3
-            AccountMeta::new(Pubkey::new_unique(), false), // 4
-        ];
-        
-        // Simple dummy instruction data
-        let instruction_data = vec![1, 2, 3, 4];
-        
-        let instruction = Instruction {
-            program_id: pump_program,
-            accounts,
-            data: instruction_data,
-        };
-        
-        // Create a transaction
-        let message = Message::new(&[instruction], Some(&payer.pubkey()));
-        let tx = Transaction::new(&[&payer], message, Hash::default());
-        let vtx = VersionedTransaction::from(tx);
-        
-        // Find token addresses
-        let result = find_token_addresses(&vtx.message);
-        
-        // Verify we got a result
-        assert!(result.is_ok());
-        
-        let token_addresses = result.unwrap();
-        
-        // Verify we found the token mint address we added
-        assert!(token_addresses.contains(&token_mint));
     }
 }
