@@ -21,7 +21,7 @@ pub enum ParsedRaydiumClmmInstructions {
 
 impl ParsedRaydiumClmmInstructions {
     pub fn from_bytes(bytes: Vec<u8>, accounts: Vec<Account>) -> MevResult<Self> {
-        if bytes.len() < 33 {
+        if bytes.len() < 41 {
             return Err(crate::result::MevError::FailedToDeserialize);
         };
         let mut amount_in_bytes = [0u8; 8];
@@ -29,15 +29,15 @@ impl ParsedRaydiumClmmInstructions {
         let mut sqrt_thing_bytes = [0u8; 16];
         
         // Copy the bytes into properly sized arrays for conversion
-        min_out_bytes[..8].copy_from_slice(&bytes[1..9]);
-        amount_in_bytes[..8].copy_from_slice(&bytes[9..17]);
-        sqrt_thing_bytes[..16].copy_from_slice(&bytes[17..33]);
+        min_out_bytes[..8].copy_from_slice(&bytes[8..16]);
+        amount_in_bytes[..8].copy_from_slice(&bytes[16..24]);
+        sqrt_thing_bytes[..16].copy_from_slice(&bytes[24..40]);
         
         return Ok(Self::Swap {
-            amount: u64::from_le_bytes(amount_in_bytes),
-            other_amount_threshold: u64::from_le_bytes(min_out_bytes),
+            amount: u64::from_le_bytes(min_out_bytes),
+            other_amount_threshold: u64::from_le_bytes(amount_in_bytes),
             sqrt_price_limit_64: u128::from_le_bytes(sqrt_thing_bytes),
-            is_base_input: bytes[32] == 1,
+            is_base_input: bytes[40] == 1,
             accounts
         })
     }
@@ -45,7 +45,7 @@ impl ParsedRaydiumClmmInstructions {
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
             Self::Swap { amount, other_amount_threshold, accounts, sqrt_price_limit_64, is_base_input } => {
-                let mut instruction_data = [].to_vec();
+                let mut instruction_data = [43, 4, 237, 11, 26, 201, 30, 98].to_vec();
                 instruction_data.extend_from_slice(&amount.to_le_bytes());
                 instruction_data.extend_from_slice(&other_amount_threshold.to_le_bytes());
                 instruction_data.extend_from_slice(&sqrt_price_limit_64.to_le_bytes());
@@ -177,8 +177,8 @@ impl ParsedRaydiumClmmInstructions {
         match self {
             Self::Swap { accounts, .. } => {
                 match swap_in_out {
-                    true => static_keys[accounts[9].account_index as usize],
-                    false => static_keys[accounts[8].account_index as usize]
+                    true => static_keys[accounts[11].account_index as usize],
+                    false => static_keys[accounts[12].account_index as usize]
                 }
             }
         }
@@ -188,8 +188,8 @@ impl ParsedRaydiumClmmInstructions {
         match self {
             Self::Swap { accounts, .. } => {
                 match swap_in_out {
-                    true => static_keys[accounts[8].account_index as usize],
-                    false => static_keys[accounts[9].account_index as usize]
+                    true => static_keys[accounts[12].account_index as usize],
+                    false => static_keys[accounts[11].account_index as usize]
                 }
             }
         }
@@ -235,35 +235,90 @@ mod test {
 
     #[test]
     fn deserialize_clmm_instruction() {
-        let ix = [1, 150, 155, 13, 34, 0, 0, 0, 0, 24, 103, 28, 250, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].to_vec();
-        let accounts = [17, 20, 18, 19, 0, 16, 1, 3, 2, 4, 5, 6, 7, 8, 9, 15, 10, 11, 12];
+        let ix = [
+            43, 4, 237, 11, 26, 201, 30, 98, 
+            157, 49, 166, 180, 0, 0, 0, 0,
+            1, 0, 0, 0, 0, 0, 0, 0, 
+            154, 87, 105, 78, 169, 26, 92, 132, 177, 196, 254, 255, 0, 0, 0, 0,
+            1
+        ].to_vec();
+        let accounts = [0, 10, 1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 7, 8, 9];
         let target = ParsedRaydiumClmmInstructions::from_bytes(ix, accounts.iter().map(|i| Account::new(i, false)).collect()).unwrap();
         let static_keys: Vec<Pubkey> = [
-            "Fc8kDysBQxfk284j3LmDEeseuYChtwH44xaSa1h94nSu", 
-            "HiED8abKmmAbVNSRrcwnahCdeu1SrD7EzrzXohuutLBv", 
+            "CWZH15GdUAMRVrJogDgLzYzaSMhVtqqZjMaEKSVyxAN", 
+            "2vu8uC6Dd47KT4Pjv34KzDaRKZq6nuwpjxfgbtiGKm5e", 
+            "98PG8fGr8WBN5Tqmic4UU8K9v8ZKsvnAQdUdgtrNGpGg", 
+            "DNd6iKDkeZyMLyqFm4sCGDtiGZmJPd6HsSQGdS2WQqQH",
+            "54hPh6Btj8RTt4AKQX3KEYV3rxmYEQMrF5fxVuDyd7Ka", 
+            "AH7oyTfUvM3vN47kd9w25rHNGGy7pMGdh4KMUGxnwEfj", 
+            "14sFgtoPYf2fj1LYgQEJN7iM1c9rZ3RcuqA9q9RhFRM9", 
+            "4xsKyvEJV5Prww5phxHdcERqBg6WjEVVeNgqFM4w5Fxz", 
+            "3BtkUDGg5Cvs7fYzwUmfTHGsWe6Fyvd4uvRCJsakw2Qd", 
+            "7HC2yNBGpjf4QqL2yfjGh8wTwNLYMFyLL2J35nxD5Hnq", 
+            "9iFER3bpjf1PTTCQCfTRu17EJgvsxo9pVyA9QWwEuX4x", 
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", 
+            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", 
+            "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", 
+            "rq1nFfHyk65DGjUYHScFQTzx3cJd79RA7k7aPCNpump", 
             "So11111111111111111111111111111111111111112", 
-            "F2Qn1rpQYbMW9ds8UP3ZCKjgGPVqa7UyDBVjzZ9hXJds", 
-            "3Ubp2dXJ9X5oueMjpEeUHHDn7Vs31ZNLNd1YU9F2HT5h", 
-            "3XCQJQryqpDvvZBfGxR7CLAw5dpGJ9aa7kt1jRLdyxuZ", 
-            "3ffQUUvRV76RvNebfamEHiaD4a8sSTKfMoaDpK3scjSG", 
-            "2PmU7H9H45dnCbuMEEFdFXW1nv9TnaFoNr8YmSunWxvU", 
-            "Eb4pBstAacBPz72gG9QCGa1SYvhucB8GGgz9koNRvszE", 
-            "6pEVfpFab3vBJNbWtSUo7rTPGQbiiu1RpKKfx48RLj1w", 
-            "7e7d7G8EFLJ2ENAysxVn7ZF1XegXf3Qq8UZhQtbhgRV4", 
-            "4PWF4ZqTY2r4eNDMoEmg9nz9iyjTbWjBPeeJ6imvqq6D", 
-            "7WuwJowbtpih5sEaA5131z3TfuUFPwNWqiAfgCLJJJec", 
             "ComputeBudget111111111111111111111111111111", 
-            "routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS", 
-            "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+            "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
         ].iter().map(|k| Pubkey::from_str_const(k)).collect();
         assert_eq!(
             target, 
             ParsedRaydiumClmmInstructions::Swap { 
-                amount: 124455249688, 
-                other_amount_threshold: 571317142, 
+                amount: 3030790557, 
+                other_amount_threshold: 1, 
+                accounts: accounts.iter().map(|i| Account::new(i, false)).collect(), 
+                sqrt_price_limit_64: 79226673521066979257578248090, 
+                is_base_input: true
+            }
+        );
+        assert_eq!(
+            target.mint_out(static_keys.as_slice(), true),
+            Pubkey::from_str_const("So11111111111111111111111111111111111111112")
+        );
+    }
+    
+    #[test]
+    fn deserialize_2() {
+        let ix = [
+            43, 4, 237, 11, 26, 201, 30, 98, 
+            99, 84, 101, 3, 126, 5, 0, 0, 
+            72, 174, 230, 22, 0, 0, 0, 0, 
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            1
+        ].to_vec();
+        let accounts = [0, 10, 1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 7, 8, 9].to_vec();
+        let target = ParsedRaydiumClmmInstructions::from_bytes(ix, accounts.iter().map(|i| Account::new(i, false)).collect()).unwrap();
+        let static_keys: Vec<Pubkey> = [
+            "CWZH15GdUAMRVrJogDgLzYzaSMhVtqqZjMaEKSVyxAN", 
+            "2vu8uC6Dd47KT4Pjv34KzDaRKZq6nuwpjxfgbtiGKm5e", 
+            "98PG8fGr8WBN5Tqmic4UU8K9v8ZKsvnAQdUdgtrNGpGg", 
+            "DNd6iKDkeZyMLyqFm4sCGDtiGZmJPd6HsSQGdS2WQqQH",
+            "54hPh6Btj8RTt4AKQX3KEYV3rxmYEQMrF5fxVuDyd7Ka", 
+            "AH7oyTfUvM3vN47kd9w25rHNGGy7pMGdh4KMUGxnwEfj", 
+            "14sFgtoPYf2fj1LYgQEJN7iM1c9rZ3RcuqA9q9RhFRM9", 
+            "4xsKyvEJV5Prww5phxHdcERqBg6WjEVVeNgqFM4w5Fxz", 
+            "3BtkUDGg5Cvs7fYzwUmfTHGsWe6Fyvd4uvRCJsakw2Qd", 
+            "7HC2yNBGpjf4QqL2yfjGh8wTwNLYMFyLL2J35nxD5Hnq", 
+            "9iFER3bpjf1PTTCQCfTRu17EJgvsxo9pVyA9QWwEuX4x", 
+            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", 
+            "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", 
+            "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr", 
+            "rq1nFfHyk65DGjUYHScFQTzx3cJd79RA7k7aPCNpump", 
+            "So11111111111111111111111111111111111111112", 
+            "ComputeBudget111111111111111111111111111111", 
+            "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+        ].iter().map(|k| Pubkey::from_str_const(k)).collect();
+        assert_eq!(
+            target, 
+            ParsedRaydiumClmmInstructions::Swap { 
+                amount: 6038780990563, 
+                other_amount_threshold: 384216648, 
                 accounts: accounts.iter().map(|i| Account::new(i, false)).collect(), 
                 sqrt_price_limit_64: 0, 
-                is_base_input: false
+                is_base_input: true
             }
         );
         assert_eq!(
