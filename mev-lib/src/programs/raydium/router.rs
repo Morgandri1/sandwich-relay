@@ -2,13 +2,8 @@ use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 
 use crate::{programs::Account, result::{MevError, MevResult}};
 
+#[allow(unused)]
 pub const ROUTER_PROGRAM_ID: Pubkey = Pubkey::from_str_const("routeUGWgWzqBWFcrCfv8tritsqukccJPu3q5GPP3xS");
-
-#[repr(u8)]
-pub enum RaydiumRouterInstructions {
-    Route = 0,
-    Cleanup = 6
-}
 
 #[derive(Debug, PartialEq)]
 pub enum ParsedRaydiumRouterInstructions {
@@ -21,6 +16,7 @@ pub enum ParsedRaydiumRouterInstructions {
 }
 
 impl ParsedRaydiumRouterInstructions {
+    #[allow(unused)]
     pub fn from_bytes(bytes: Vec<u8>, accounts: Vec<Account>) -> MevResult<Self> {
         if bytes.len() < 17 {
             return Err(crate::result::MevError::FailedToDeserialize);
@@ -39,6 +35,7 @@ impl ParsedRaydiumRouterInstructions {
         })
     }
     
+    #[allow(unused)]
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
             Self::Route { amount_in, minimum_amount_out, accounts } => {

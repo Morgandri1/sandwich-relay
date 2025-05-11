@@ -34,10 +34,11 @@ impl ParsedRaydiumLpv4Instructions {
         })
     }
     
+    #[allow(unused)]
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
             Self::Swap { amount_in, minimum_amount_out, accounts } => {
-                let mut instruction_data = [].to_vec();
+                let mut instruction_data = [0].to_vec();
                 instruction_data.extend_from_slice(&amount_in.to_le_bytes());
                 instruction_data.extend_from_slice(&minimum_amount_out.to_le_bytes());
                 return Ok(CompiledInstruction { 
@@ -50,6 +51,7 @@ impl ParsedRaydiumLpv4Instructions {
         }
     }
     
+    #[allow(unused)]
     pub fn mutate_accounts(&self, static_keys: &[Pubkey], new_sender: &Pubkey, swap_in_out: bool) -> MevResult<Vec<Pubkey>> {
         match self {
             Self::Swap { accounts, .. } => {

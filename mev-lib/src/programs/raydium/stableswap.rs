@@ -17,6 +17,7 @@ pub enum ParsedRaydiumStableSwapInstructions {
 }
 
 impl ParsedRaydiumStableSwapInstructions {
+    #[allow(unused)]
     pub fn from_bytes(bytes: Vec<u8>, accounts: Vec<Account>) -> MevResult<Self> {
         if bytes.len() <= 16 {
             return Err(crate::result::MevError::FailedToDeserialize);
@@ -36,6 +37,7 @@ impl ParsedRaydiumStableSwapInstructions {
         })
     }
     
+    #[allow(unused)]
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
             Self::Swap { amount_in, minimum_amount_out, accounts, instruction } => {
@@ -52,6 +54,7 @@ impl ParsedRaydiumStableSwapInstructions {
         }
     }
     
+    #[allow(unused)]
     pub fn mutate_accounts(&self, static_keys: &[Pubkey], new_sender: &Pubkey, swap_in_out: bool) -> MevResult<Vec<Pubkey>> {
         match self {
             Self::Swap { accounts, .. } => {

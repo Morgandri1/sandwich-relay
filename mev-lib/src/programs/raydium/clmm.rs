@@ -4,10 +4,6 @@ use crate::{programs::Account, result::MevResult};
 
 pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey = Pubkey::from_str_const("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK");
 
-pub enum RaydiumClmmInstructions {
-    
-}
-
 #[derive(Debug, PartialEq)]
 pub enum ParsedRaydiumClmmInstructions {
     Swap {
@@ -177,8 +173,8 @@ impl ParsedRaydiumClmmInstructions {
         match self {
             Self::Swap { accounts, .. } => {
                 match swap_in_out {
-                    true => static_keys[accounts[11].account_index as usize],
-                    false => static_keys[accounts[12].account_index as usize]
+                    true => static_keys[accounts[12].account_index as usize],
+                    false => static_keys[accounts[11].account_index as usize]
                 }
             }
         }
@@ -188,8 +184,8 @@ impl ParsedRaydiumClmmInstructions {
         match self {
             Self::Swap { accounts, .. } => {
                 match swap_in_out {
-                    true => static_keys[accounts[12].account_index as usize],
-                    false => static_keys[accounts[11].account_index as usize]
+                    true => static_keys[accounts[11].account_index as usize],
+                    false => static_keys[accounts[12].account_index as usize]
                 }
             }
         }
@@ -276,7 +272,7 @@ mod test {
         );
         assert_eq!(
             target.mint_out(static_keys.as_slice(), true),
-            Pubkey::from_str_const("So11111111111111111111111111111111111111112")
+            Pubkey::from_str_const("rq1nFfHyk65DGjUYHScFQTzx3cJd79RA7k7aPCNpump")
         );
     }
     
@@ -323,7 +319,7 @@ mod test {
         );
         assert_eq!(
             target.mint_out(static_keys.as_slice(), true),
-            Pubkey::from_str_const("So11111111111111111111111111111111111111112")
+            Pubkey::from_str_const("rq1nFfHyk65DGjUYHScFQTzx3cJd79RA7k7aPCNpump")
         );
     }
 }

@@ -8,12 +8,10 @@ use raydium::{
     ParsedRaydiumClmmInstructions, 
     ParsedRaydiumCpmmInstructions, 
     ParsedRaydiumLpv4Instructions, 
-    ParsedRaydiumRouterInstructions, 
     ParsedRaydiumStableSwapInstructions, 
     LPV4_SWAP, 
     RAYDIUM_CLMM_PROGRAM_ID, 
     RAYDIUM_CPMM_PROGRAM_ID, 
-    ROUTER_PROGRAM_ID, 
     STABLE_SWAP_PROGRAM_ID
 };
 
@@ -41,9 +39,11 @@ impl Account {
 }
 
 pub enum ParsedInstruction {
+    #[allow(unused)]
     RaydiumLpv4(MevResult<ParsedRaydiumLpv4Instructions>),
     // RaydiumRouter(MevResult<ParsedRaydiumRouterInstructions>),
     RaydiumClmm(MevResult<ParsedRaydiumClmmInstructions>),
+    #[allow(unused)]
     RaydiumStable(MevResult<ParsedRaydiumStableSwapInstructions>),
     RaydiumCpmm(MevResult<ParsedRaydiumCpmmInstructions>),
     PumpFun(MevResult<ParsedPumpFunInstructions>),

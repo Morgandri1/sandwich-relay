@@ -1,6 +1,6 @@
 use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
 
-use crate::result::{MevError, MevResult};
+use crate::result::MevResult;
 use super::Account;
 
 pub const PUMPSWAP_PROGRAM_ID: Pubkey = Pubkey::from_str_const("pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA");
@@ -47,17 +47,18 @@ impl ParsedPumpSwapInstructions {
                     accounts: accounts.iter().map(|a| a.account_index).collect(), 
                     data: instruction_data
                 })
-            },
-            _ => Err(MevError::ValueError)
+            }
         }
     }
     
+    #[allow(unused)]
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { accounts, .. } => Ok(static_keys[accounts[3].account_index as usize])
         }
     }
     
+    #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { accounts, .. } => Ok(static_keys[accounts[4].account_index as usize])

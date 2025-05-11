@@ -190,6 +190,7 @@ impl ParsedPumpFunInstructions {
         }
     }
     
+    #[allow(unused)]
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Sell { accounts, .. } => Ok(static_keys[accounts[2].account_index as usize]),
@@ -197,6 +198,7 @@ impl ParsedPumpFunInstructions {
         }
     }
     
+    #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { accounts, .. } => Ok(static_keys[accounts[2].account_index as usize]),

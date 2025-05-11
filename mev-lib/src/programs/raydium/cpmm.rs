@@ -4,10 +4,6 @@ use crate::{programs::Account, result::{MevError, MevResult}};
 
 pub const RAYDIUM_CPMM_PROGRAM_ID: Pubkey = Pubkey::from_str_const("CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C");
 
-pub enum RaydiumCpmmInstructions {
-    
-}
-
 #[derive(Debug, PartialEq)]
 pub enum ParsedRaydiumCpmmInstructions {
     SwapIn {

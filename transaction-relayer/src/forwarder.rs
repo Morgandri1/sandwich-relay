@@ -14,7 +14,7 @@ use jito_relayer::relayer::RelayerPacketBatches;
 use mev_lib::sandwich_batch_packets;
 use solana_core::banking_trace::BankingPacketBatch;
 use solana_metrics::datapoint_info;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair};
+use solana_sdk::signature::Keypair;
 use tokio::sync::mpsc::error::TrySendError;
 
 pub const BLOCK_ENGINE_FORWARDER_QUEUE_CAPACITY: usize = 5_000;
