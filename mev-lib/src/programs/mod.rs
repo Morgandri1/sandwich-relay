@@ -1,6 +1,7 @@
 pub mod pumpfun;
 pub mod pumpswap;
 pub mod raydium;
+pub mod mev;
 
 use pumpfun::{ParsedPumpFunInstructions, PUMPFUN_PROGRAM_ID};
 use pumpswap::{ParsedPumpSwapInstructions, PUMPSWAP_PROGRAM_ID};

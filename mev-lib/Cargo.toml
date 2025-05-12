@@ -38,3 +38,7 @@ tonic = { workspace = true }
 byteorder = "1.4"
 hex = "0.4"
 lazy_static = "1.4.0"
+anchor-client = "0.31.1"
+anchor-lang = "0.31.1"
+borsh = "0.10.3"
+rand = { version = "0.9.1", features = ["thread_rng"]}

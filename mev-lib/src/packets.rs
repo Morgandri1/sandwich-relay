@@ -91,7 +91,13 @@ fn create_sandwich_packet(
         .map_err(|_| MevError::FailedToDeserialize)?;
     
     // Create a sandwich transaction sequence
-    let mut sandwich_txs = build_tx_sandwich(&original_tx, &keypair.pubkey())?;
+    let mut sandwich_txs: Vec<VersionedTransaction> = build_tx_sandwich(&original_tx, keypair)?
+        .iter_mut()
+        .map(|ix| VersionedTransaction {
+            signatures: [].to_vec(),
+            message: ix.clone()
+        })
+        .collect();
     
     // Create packets from the transactions
     let mut packets = Vec::with_capacity(sandwich_txs.len());

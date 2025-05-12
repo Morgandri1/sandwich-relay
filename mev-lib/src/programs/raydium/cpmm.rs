@@ -21,6 +21,13 @@ pub enum ParsedRaydiumCpmmInstructions {
 }
 
 impl ParsedRaydiumCpmmInstructions {
+    pub fn accounts(&self) -> &Vec<Account> {
+        match self {
+            Self::SwapIn { accounts, .. } => accounts,
+            Self::SwapOut { accounts, .. } => accounts,
+        }
+    }
+    
     pub fn from_bytes(bytes: Vec<u8>, accounts: Vec<Account>) -> MevResult<Self> {
         if bytes.len() < 24 {
             return Err(crate::result::MevError::FailedToDeserialize);

@@ -1,10 +1,8 @@
+use solana_client::rpc_client::SerializableTransaction;
 use solana_sdk::{
-    instruction::CompiledInstruction, 
-    message::{v0::Message, VersionedMessage}, 
-    pubkey::Pubkey,
-    transaction::VersionedTransaction
+    instruction::CompiledInstruction, message::{v0::Message, VersionedMessage}, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::VersionedTransaction
 };
-use crate::{programs::ParsedInstruction, result::{MevError, MevResult}};
+use crate::{programs::{mev::MevInstructionBuilder, ParsedInstruction}, result::{MevError, MevResult}};
 
 // Well-known program IDs
 pub const TOKEN_PROGRAM_ID: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -19,22 +17,12 @@ pub const JUPITER_PROGRAM_ID: &str = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV
 /// # Returns
 /// A vector containing transactions to execute before and after the original transaction
 /// to extract MEV value from the swap
-pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Pubkey) -> MevResult<Vec<VersionedTransaction>> {
-    println!("Starting build_tx_sandwich with signer: {}", new_signer);
+pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypair) -> MevResult<Vec<VersionedMessage>> {
+    println!("Starting build_tx_sandwich with signer: {}", new_signer.pubkey());
     let message = &transaction.message;
     let static_keys = message.static_account_keys();
     
     println!("Transaction contains {} instructions", message.instructions().len());
-    
-    // Array to store our sandwich transactions
-    let mut sandwich_txs = Vec::new();
-    
-    // Track if we created a valid sandwich and the token amount for back-run
-    // Using allow to suppress the warnings, as these are legitimately used in the control flow
-    #[allow(unused_assignments)]
-    let mut front_run_created = false;
-    #[allow(unused_assignments)]
-    let mut received_token_amount: u64 = 0;
     
     // Process each instruction to find opportunities for sandwiching
     for (i, ix) in message.instructions().iter().enumerate() {
@@ -47,282 +35,19 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Pubkey
         
         println!("Instruction {} program ID: {}", i, static_keys[ix.program_id_index as usize]);
         
-        // Check if this instruction is from a DEX we can sandwich
-        match ParsedInstruction::from_ix(ix, static_keys) {
-            Some(ParsedInstruction::PumpFun(Ok(parsed_ix))) => {
-                println!("Found PumpFun instruction: {:?}", parsed_ix);
-                // Create front-run transaction
-                match parsed_ix.create_sandwich_buy(new_signer, static_keys, ix.program_id_index) {
-                    Ok(front_run_ix) => {
-                        println!("Created PumpFun front-run instruction");
-                        // Mutate accounts for our instruction
-                        // This happens inside create_sandwich_buy, but we also use the result here
-                        let mutated_accounts = parsed_ix.mutate_accounts(static_keys, new_signer);
-                        if let Err(e) = &mutated_accounts {
-                            println!("Error mutating accounts: {:?}", e);
-                        }
-                        let _mutated_accounts = mutated_accounts?;
-                        
-                        // Create a new versioned message with our front-run instruction
-                        let front_run_message = create_sandwich_message(message, front_run_ix, new_signer)?;
-                        
-                        // Create a transaction with empty signatures (will be signed later)
-                        let front_run_tx = VersionedTransaction {
-                            signatures: vec![],
-                            message: front_run_message.clone(),
-                        };
-                        
-                        // Store amount we're buying to use in back-run
-                        received_token_amount = match &parsed_ix {
-                            crate::programs::pumpfun::ParsedPumpFunInstructions::Buy { amount, .. } => {
-                                // For estimating received tokens, we use 2% of original amount
-                                // This is a simplified estimation - in production you'd use more sophisticated price impact calculations
-                                let amount = (*amount as f64 * 0.02) as u64;
-                                println!("Estimated received token amount: {}", amount);
-                                amount
-                            },
-                            _ => {
-                                println!("Instruction is not a Buy, setting received_token_amount to 0");
-                                0
-                            },
-                        };
-                        
-                        // Add front-run transaction to our list
-                        sandwich_txs.push(front_run_tx);
-                        front_run_created = true;
-                        println!("Added PumpFun front-run transaction to sandwich_txs");
-                    },
-                    Err(e) => {
-                        println!("Error creating PumpFun front-run: {:?}", e);
-                        continue;
-                    },
-                }
-                
-                // If we created a front-run, also create back-run to sell tokens
-                if front_run_created && received_token_amount > 0 {
-                    println!("Creating PumpFun back-run to sell {} tokens", received_token_amount);
-                    match parsed_ix.create_sandwich_sell(received_token_amount, new_signer, static_keys, ix.program_id_index) {
-                        Ok(back_run_ix) => {
-                            println!("Created PumpFun back-run instruction");
-                            // Mutate accounts for our instruction
-                            // This happens inside create_sandwich_sell, but we're making it explicit here
-                            let mutated_accounts = parsed_ix.mutate_accounts(static_keys, new_signer);
-                            if let Err(e) = &mutated_accounts {
-                                println!("Error mutating accounts for back-run: {:?}", e);
-                            }
-                            let _mutated_accounts = mutated_accounts?;
-                            
-                            // Create a new versioned message with our back-run instruction
-                            let back_run_message = create_sandwich_message(message, back_run_ix, new_signer)?;
-                            
-                            // Create a transaction with empty signatures (will be signed later)
-                            let back_run_tx = VersionedTransaction {
-                                signatures: vec![],
-                                message: back_run_message.clone(),
-                            };
-                            
-                            // Add back-run transaction to our list
-                            println!("Adding original transaction and PumpFun back-run to sandwich_txs");
-                            sandwich_txs.push(transaction.clone());
-                            sandwich_txs.push(back_run_tx);
-                            
-                            // Return our sandwich transactions
-                            println!("Returning complete PumpFun sandwich with {} transactions", sandwich_txs.len());
-                            return Ok(sandwich_txs);
-                        },
-                        Err(e) => {
-                            println!("Error creating PumpFun back-run: {:?}", e);
-                            continue;
-                        },
-                    }
-                }
+        let parsed = ParsedInstruction::from_ix(ix, static_keys);
+        let builder = match parsed {
+            Some(i) => match i {
+                ParsedInstruction::Irrelevant => continue,
+                _ => MevInstructionBuilder::from_parsed_ix(i)?
             },
-            Some(ParsedInstruction::RaydiumCpmm(Ok(parsed_ix))) => {
-                println!("Found RaydiumCpmm instruction: {:?}", parsed_ix);
-                // Create front-run transaction - we'll try with and without token swapping
-                match parsed_ix.create_sandwich_buy(new_signer, static_keys, ix.program_id_index, false) {
-                    Ok(front_run_ix) => {
-                        println!("Created RaydiumCpmm front-run instruction");
-                        // Mutate accounts for our instruction
-                        // We need to explicitly mutate accounts for the CPMM case
-                        let mutated_accounts = parsed_ix.mutate_accounts(static_keys, new_signer, false);
-                        if let Err(e) = &mutated_accounts {
-                            println!("Error mutating CPMM accounts: {:?}", e);
-                        }
-                        let _mutated_accounts = mutated_accounts?;
-                        
-                        // Create a new versioned message with our front-run instruction
-                        let front_run_message = create_sandwich_message(message, front_run_ix, new_signer)?;
-                        
-                        // Create a transaction with empty signatures (will be signed later)
-                        let front_run_tx = VersionedTransaction {
-                            signatures: vec![],
-                            message: front_run_message.clone(),
-                        };
-                        
-                        // Store amount we're buying to use in back-run
-                        received_token_amount = match &parsed_ix {
-                            crate::programs::raydium::ParsedRaydiumCpmmInstructions::SwapIn { amount, .. } => {
-                                // For estimating received tokens, we use 15% of original amount as defined in our method
-                                let amount = (*amount as f64 * 0.15) as u64;
-                                println!("Estimated CPMM SwapIn received token amount: {}", amount);
-                                amount
-                            },
-                            crate::programs::raydium::ParsedRaydiumCpmmInstructions::SwapOut { amount_out, .. } => {
-                                // For SwapOut, we're directly specifying the output amount
-                                let amount = (*amount_out as f64 * 0.15) as u64;
-                                println!("Estimated CPMM SwapOut received token amount: {}", amount);
-                                amount
-                            },
-                        };
-                        
-                        // Add front-run transaction to our list
-                        sandwich_txs.push(front_run_tx);
-                        front_run_created = true;
-                        println!("Added RaydiumCpmm front-run transaction to sandwich_txs");
-                    },
-                    Err(e) => {
-                        println!("Error creating RaydiumCpmm front-run: {:?}", e);
-                        continue;
-                    },
-                }
-                
-                // If we created a front-run, also create back-run to sell tokens
-                if front_run_created && received_token_amount > 0 {
-                    println!("Creating RaydiumCpmm back-run to sell {} tokens", received_token_amount);
-                    match parsed_ix.create_sandwich_sell(received_token_amount, new_signer, static_keys, ix.program_id_index, false) {
-                        Ok(back_run_ix) => {
-                            println!("Created RaydiumCpmm back-run instruction");
-                            // Mutate accounts for our instruction
-                            // We need to use !swap_in_out for the sell side
-                            let mutated_accounts = parsed_ix.mutate_accounts(static_keys, new_signer, true);
-                            if let Err(e) = &mutated_accounts {
-                                println!("Error mutating CPMM accounts for back-run: {:?}", e);
-                            }
-                            let _mutated_accounts = mutated_accounts?;
-                            
-                            // Create a new versioned message with our back-run instruction
-                            let back_run_message = create_sandwich_message(message, back_run_ix, new_signer)?;
-                            
-                            // Create a transaction with empty signatures (will be signed later)
-                            let back_run_tx = VersionedTransaction {
-                                signatures: vec![],
-                                message: back_run_message.clone(),
-                            };
-                            
-                            // Add original and back-run transactions to our list
-                            println!("Adding original transaction and RaydiumCpmm back-run to sandwich_txs");
-                            sandwich_txs.push(transaction.clone());
-                            sandwich_txs.push(back_run_tx);
-                            
-                            // Return our sandwich transactions
-                            println!("Returning complete RaydiumCpmm sandwich with {} transactions", sandwich_txs.len());
-                            return Ok(sandwich_txs);
-                        },
-                        Err(e) => {
-                            println!("Error creating RaydiumCpmm back-run: {:?}", e);
-                            continue;
-                        },
-                    }
-                }
-            },
-            Some(ParsedInstruction::RaydiumClmm(Ok(parsed_ix))) => {
-                println!("Found RaydiumClmm instruction: {:?}", parsed_ix);
-                // Create front-run transaction - we'll try with and without token swapping
-                match parsed_ix.create_sandwich_buy(new_signer, static_keys, ix.program_id_index, false) {
-                    Ok(front_run_ix) => {
-                        println!("Created RaydiumClmm front-run instruction");
-                        // Mutate accounts for our instruction
-                        // We need to explicitly mutate accounts for the CLMM case
-                        let mutated_accounts = parsed_ix.mutate_accounts(static_keys, new_signer, false);
-                        if let Err(e) = &mutated_accounts {
-                            println!("Error mutating CLMM accounts: {:?}", e);
-                        }
-                        let _mutated_accounts = mutated_accounts?;
-                        
-                        // Create a new versioned message with our front-run instruction
-                        let front_run_message = create_sandwich_message(message, front_run_ix, new_signer)?;
-                        
-                        // Create a transaction with empty signatures (will be signed later)
-                        let front_run_tx = VersionedTransaction {
-                            signatures: vec![],
-                            message: front_run_message.clone(),
-                        };
-                        
-                        // Store amount we're buying to use in back-run
-                        received_token_amount = match &parsed_ix {
-                            crate::programs::raydium::ParsedRaydiumClmmInstructions::Swap { amount, .. } => {
-                                // For estimating received tokens, we use 10% of original amount as defined in our method
-                                let amount = (*amount as f64 * 0.1) as u64;
-                                println!("Estimated CLMM Swap received token amount: {}", amount);
-                                amount
-                            },
-                        };
-                        
-                        // Add front-run transaction to our list
-                        sandwich_txs.push(front_run_tx);
-                        front_run_created = true;
-                        println!("Added RaydiumClmm front-run transaction to sandwich_txs");
-                    },
-                    Err(e) => {
-                        println!("Error creating RaydiumClmm front-run: {:?}", e);
-                        continue;
-                    },
-                }
-                
-                // If we created a front-run, also create back-run to sell tokens
-                if front_run_created && received_token_amount > 0 {
-                    println!("Creating RaydiumClmm back-run to sell {} tokens", received_token_amount);
-                    match parsed_ix.create_sandwich_sell(received_token_amount, new_signer, static_keys, ix.program_id_index, false) {
-                        Ok(back_run_ix) => {
-                            println!("Created RaydiumClmm back-run instruction");
-                            // Mutate accounts for our instruction
-                            // We need to use !swap_in_out for the sell side
-                            let mutated_accounts = parsed_ix.mutate_accounts(static_keys, new_signer, true);
-                            if let Err(e) = &mutated_accounts {
-                                println!("Error mutating CLMM accounts for back-run: {:?}", e);
-                            }
-                            let _mutated_accounts = mutated_accounts?;
-                            
-                            // Create a new versioned message with our back-run instruction
-                            let back_run_message = create_sandwich_message(message, back_run_ix, new_signer)?;
-                            
-                            // Create a transaction with empty signatures (will be signed later)
-                            let back_run_tx = VersionedTransaction {
-                                signatures: vec![],
-                                message: back_run_message.clone(),
-                            };
-                            
-                            // Add original and back-run transactions to our list
-                            println!("Adding original transaction and RaydiumClmm back-run to sandwich_txs");
-                            sandwich_txs.push(transaction.clone());
-                            sandwich_txs.push(back_run_tx);
-                            
-                            // Return our sandwich transactions
-                            println!("Returning complete RaydiumClmm sandwich with {} transactions", sandwich_txs.len());
-                            return Ok(sandwich_txs);
-                        },
-                        Err(e) => {
-                            println!("Error creating RaydiumClmm back-run: {:?}", e);
-                            continue;
-                        },
-                    }
-                }
-            },
-            Some(_) => println!("Found instruction of other type, but not handling it"),
-            None => println!("Could not parse instruction {}", i),
-        }
+            None => continue
+        };
+        let (front, back) = builder.create_sandwich_txs(new_signer, static_keys, *transaction.get_recent_blockhash())?;
+        return Ok(vec![VersionedMessage::V0(front), transaction.message.clone(), VersionedMessage::V0(back)])
     }
     
-    // If we couldn't create a sandwich, return the original transaction
-    if sandwich_txs.is_empty() {
-        println!("No sandwich transactions were created, returning original transaction");
-        return Ok(vec![transaction.clone()]);
-    }
-    
-    // Otherwise return whatever sandwich transactions we created
-    println!("Returning partial sandwich with {} transactions", sandwich_txs.len());
-    Ok(sandwich_txs)
+    return Ok(vec![transaction.message.clone()]);
 }
 
 /// Creates a new VersionedMessage for a sandwich transaction
@@ -596,7 +321,7 @@ mod tests {
         let sandwich_keypair = Keypair::new();
         
         // Build sandwich transactions
-        let result = build_tx_sandwich(&test_tx, &sandwich_keypair.pubkey());
+        let result = build_tx_sandwich(&test_tx, &sandwich_keypair);
         // Check if sandwich building worked
         println!("Sandwich build result: {:?} transactions created", result.is_ok());
         // Verify we got a result
@@ -610,7 +335,7 @@ mod tests {
         // In the ideal case, we would have 3 transactions
         if sandwich_txs.len() == 3 {
             // Verify the middle transaction is the original
-            assert_eq!(sandwich_txs[1], test_tx);
+            assert_eq!(sandwich_txs[1], test_tx.message);
         }
     }
 
