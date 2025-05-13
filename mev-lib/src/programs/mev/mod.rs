@@ -62,6 +62,7 @@ impl MevInstructionBuilder {
         match self {
             Self::RaydiumCpmm(ix) => self.handle_cpmm(ix, signer, target_static_accounts, recent_blockhash),
             Self::RaydiumClmm(ix) => self.handle_clmm(ix, signer, target_static_accounts, recent_blockhash),
+            Self::PumpSwap(ix) => self.handle_ps(ix, signer, target_static_accounts, recent_blockhash),
             _ => Err(MevError::UnknownError)
         }
     }
@@ -123,14 +124,14 @@ impl MevInstructionBuilder {
                         authority: target_static_accounts[accounts[1].account_index as usize],
                         amm_config: target_static_accounts[accounts[2].account_index as usize],
                         pool_state: target_static_accounts[accounts[3].account_index as usize],
-                        input_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[10].account_index as usize]),
-                        output_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[11].account_index as usize]),
-                        input_vault: target_static_accounts[accounts[6].account_index as usize],
-                        output_vault: target_static_accounts[accounts[7].account_index as usize],
-                        input_token_program: target_static_accounts[accounts[8].account_index as usize],
-                        output_token_program: target_static_accounts[accounts[9].account_index as usize],
-                        input_token_mint: target_static_accounts[accounts[10].account_index as usize],
-                        output_token_mint: target_static_accounts[accounts[11].account_index as usize],
+                        input_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[11].account_index as usize]),
+                        output_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[10].account_index as usize]),
+                        input_vault: target_static_accounts[accounts[7].account_index as usize],
+                        output_vault: target_static_accounts[accounts[6].account_index as usize],
+                        input_token_program: target_static_accounts[accounts[9].account_index as usize],
+                        output_token_program: target_static_accounts[accounts[8].account_index as usize],
+                        input_token_mint: target_static_accounts[accounts[11].account_index as usize],
+                        output_token_mint: target_static_accounts[accounts[10].account_index as usize],
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
                         sandwich_state: state_account
                     })
@@ -191,14 +192,14 @@ impl MevInstructionBuilder {
                         authority: target_static_accounts[accounts[1].account_index as usize],
                         amm_config: target_static_accounts[accounts[2].account_index as usize],
                         pool_state: target_static_accounts[accounts[3].account_index as usize],
-                        input_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[10].account_index as usize]),
-                        output_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[11].account_index as usize]),
-                        input_vault: target_static_accounts[accounts[6].account_index as usize],
-                        output_vault: target_static_accounts[accounts[7].account_index as usize],
-                        input_token_program: target_static_accounts[accounts[8].account_index as usize],
-                        output_token_program: target_static_accounts[accounts[9].account_index as usize],
-                        input_token_mint: target_static_accounts[accounts[10].account_index as usize],
-                        output_token_mint: target_static_accounts[accounts[11].account_index as usize],
+                        input_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[11].account_index as usize]),
+                        output_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[10].account_index as usize]),
+                        input_vault: target_static_accounts[accounts[7].account_index as usize],
+                        output_vault: target_static_accounts[accounts[6].account_index as usize],
+                        input_token_program: target_static_accounts[accounts[9].account_index as usize],
+                        output_token_program: target_static_accounts[accounts[8].account_index as usize],
+                        input_token_mint: target_static_accounts[accounts[11].account_index as usize],
+                        output_token_mint: target_static_accounts[accounts[10].account_index as usize],
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
                         sandwich_state: state_account
                     })
@@ -310,10 +311,184 @@ impl MevInstructionBuilder {
         }
     }
     
+    fn handle_ps(
+        &self, 
+        ix: &ParsedPumpSwapInstructions, 
+        signer: &Keypair, 
+        target_static_accounts: &[Pubkey],
+        recent_blockhash: Hash
+    ) -> MevResult<(MessageV0, MessageV0)> {
+        let program = self.create_client(signer.insecure_clone())?;
+        let (state_account, id) = self.derive_pda()?;
+        match ix {
+            ParsedPumpSwapInstructions::Buy { base_amount_out, max_quote_amount_in, accounts, .. } => {
+                if accounts.len() < 19 {
+                    return Err(MevError::ValueError);
+                }
+                let front = program
+                    .request()
+                    .accounts(accounts::PumpBuy {
+                        pool: target_static_accounts[accounts[0].account_index as usize],
+                        user: signer.pubkey(),
+                        global_config: target_static_accounts[accounts[2].account_index as usize],
+                        base_mint: target_static_accounts[accounts[3].account_index as usize],
+                        quote_mint: target_static_accounts[accounts[4].account_index as usize],
+                        user_base_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[3].account_index as usize]),
+                        user_quote_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[4].account_index as usize]),
+                        pool_base_token_account: target_static_accounts[accounts[7].account_index as usize],
+                        pool_quote_token_account: target_static_accounts[accounts[8].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[9].account_index as usize],
+                        protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
+                        base_token_program: target_static_accounts[accounts[11].account_index as usize],
+                        quote_token_program: target_static_accounts[accounts[12].account_index as usize],
+                        system_program: target_static_accounts[accounts[13].account_index as usize],
+                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        event_authority: target_static_accounts[accounts[15].account_index as usize],
+                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
+                        program: target_static_accounts[accounts[16].account_index as usize],
+                        coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                    })
+                    .args(args::PumpBuy {
+                        max_quote_amount_in: *max_quote_amount_in,
+                        base_amount_out: *base_amount_out
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                let back = program
+                    .request()
+                    .accounts(accounts::PumpSell {
+                        pool: target_static_accounts[accounts[0].account_index as usize],
+                        user: signer.pubkey(),
+                        global_config: target_static_accounts[accounts[2].account_index as usize],
+                        base_mint: target_static_accounts[accounts[3].account_index as usize],
+                        quote_mint: target_static_accounts[accounts[4].account_index as usize],
+                        user_base_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[3].account_index as usize]),
+                        user_quote_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[4].account_index as usize]),
+                        pool_base_token_account: target_static_accounts[accounts[7].account_index as usize],
+                        pool_quote_token_account: target_static_accounts[accounts[8].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[9].account_index as usize],
+                        protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
+                        base_token_program: target_static_accounts[accounts[11].account_index as usize],
+                        quote_token_program: target_static_accounts[accounts[12].account_index as usize],
+                        system_program: target_static_accounts[accounts[13].account_index as usize],
+                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        event_authority: target_static_accounts[accounts[15].account_index as usize],
+                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
+                        program: target_static_accounts[accounts[16].account_index as usize],
+                        coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                    })
+                    .args(args::PumpBuy { // Update to be sandwich ix which only takes state account
+                        max_quote_amount_in: *max_quote_amount_in,
+                        base_amount_out: *base_amount_out
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                Ok((
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &front, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
+                    MessageV0::try_compile(
+                        &signer.pubkey(),
+                        &back, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?
+                ))
+            },
+            ParsedPumpSwapInstructions::Sell { base_amount_in, min_quote_amount_out, accounts, .. } => {
+                if accounts.len() < 19 {
+                    return Err(MevError::ValueError)
+                }
+                let front = program
+                    .request()
+                    .accounts(accounts::PumpSell {
+                        pool: target_static_accounts[accounts[0].account_index as usize],
+                        user: signer.pubkey(),
+                        global_config: target_static_accounts[accounts[2].account_index as usize],
+                        base_mint: target_static_accounts[accounts[3].account_index as usize],
+                        quote_mint: target_static_accounts[accounts[4].account_index as usize],
+                        user_base_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[3].account_index as usize]),
+                        user_quote_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[4].account_index as usize]),
+                        pool_base_token_account: target_static_accounts[accounts[7].account_index as usize],
+                        pool_quote_token_account: target_static_accounts[accounts[8].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[9].account_index as usize],
+                        protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
+                        base_token_program: target_static_accounts[accounts[11].account_index as usize],
+                        quote_token_program: target_static_accounts[accounts[12].account_index as usize],
+                        system_program: target_static_accounts[accounts[13].account_index as usize],
+                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        event_authority: target_static_accounts[accounts[15].account_index as usize],
+                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
+                        program: target_static_accounts[accounts[16].account_index as usize],
+                        coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                    })
+                    .args(args::PumpSell { 
+                        base_amount_in: *base_amount_in,
+                        min_quote_amount_out: *min_quote_amount_out
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                let back = program
+                    .request()
+                    .accounts(accounts::PumpBuy {
+                        pool: target_static_accounts[accounts[0].account_index as usize],
+                        user: signer.pubkey(),
+                        global_config: target_static_accounts[accounts[2].account_index as usize],
+                        base_mint: target_static_accounts[accounts[3].account_index as usize],
+                        quote_mint: target_static_accounts[accounts[4].account_index as usize],
+                        user_base_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[3].account_index as usize]),
+                        user_quote_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[4].account_index as usize]),
+                        pool_base_token_account: target_static_accounts[accounts[7].account_index as usize],
+                        pool_quote_token_account: target_static_accounts[accounts[8].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[9].account_index as usize],
+                        protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
+                        base_token_program: target_static_accounts[accounts[11].account_index as usize],
+                        quote_token_program: target_static_accounts[accounts[12].account_index as usize],
+                        system_program: target_static_accounts[accounts[13].account_index as usize],
+                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        event_authority: target_static_accounts[accounts[15].account_index as usize],
+                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
+                        program: target_static_accounts[accounts[16].account_index as usize],
+                        coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                    })
+                    .args(args::PumpSell { // Update to be sandwich ix which only takes state account
+                        base_amount_in: *base_amount_in,
+                        min_quote_amount_out: *min_quote_amount_out
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                Ok((
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &front, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &front, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?
+                ))
+            }
+        }
+    }
+    
     fn handle_lpv4(&self, ix: ParsedRaydiumLpv4Instructions, signer: Keypair) {}
     fn handle_stable(&self, ix: ParsedRaydiumStableSwapInstructions, signer: Keypair) {}
     fn handle_pf(&self, ix: ParsedPumpFunInstructions, signer: Keypair) {}
-    fn handle_ps(&self, ix: ParsedPumpSwapInstructions, signer: Keypair) {}
 }
 
 #[cfg(test)]
