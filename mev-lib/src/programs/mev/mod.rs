@@ -7,13 +7,13 @@ use solana_sdk::{
     signature::{Keypair, Signer}
 };
 use anchor_client::{
-    anchor_lang::declare_program, Client, Cluster
+    anchor_lang::declare_program, Client, Cluster, Program
 };
 use spl_associated_token_account::get_associated_token_address;
 
 use crate::result::{MevError, MevResult};
 
-use super::{pumpfun::ParsedPumpFunInstructions, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
+use super::{pumpfun::ParsedPumpFunInstructions, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
 
 pub const MEV_PROGRAM_ID: Pubkey = Pubkey::from_str_const("XArSfgXtRWmxtyUW6dS6tTky1uYwpvaKEEq5eg93w15");
 
@@ -61,8 +61,17 @@ impl MevInstructionBuilder {
     ) -> MevResult<(MessageV0, MessageV0)> {
         match self {
             Self::RaydiumCpmm(ix) => self.handle_cpmm(ix, signer, target_static_accounts, recent_blockhash),
+            Self::RaydiumClmm(ix) => self.handle_clmm(ix, signer, target_static_accounts, recent_blockhash),
             _ => Err(MevError::UnknownError)
         }
+    }
+    
+    fn create_client(&self, signer: Keypair) -> MevResult<Program<Rc<Keypair>>> {
+        Client::new_with_options(
+            Cluster::Localnet, // shouldn't ever be used in theory
+            Rc::new(signer), 
+            CommitmentConfig::confirmed()
+        ).program(MEV_PROGRAM_ID).map_err(|_| MevError::UnknownError)
     }
     
     fn handle_cpmm(
@@ -72,11 +81,7 @@ impl MevInstructionBuilder {
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
-        let program = Client::new_with_options(
-            Cluster::Localnet, 
-            Rc::new(signer), 
-            CommitmentConfig::confirmed()
-        ).program(MEV_PROGRAM_ID).map_err(|_| MevError::UnknownError)?;
+        let program = self.create_client(signer.insecure_clone())?;
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedRaydiumCpmmInstructions::SwapIn { amount, min_amount_out, accounts, .. } => {
@@ -218,8 +223,94 @@ impl MevInstructionBuilder {
         }
     }
     
+    fn handle_clmm(
+        &self, 
+        ix: &ParsedRaydiumClmmInstructions, 
+        signer: &Keypair, 
+        target_static_accounts: &[Pubkey],
+        recent_blockhash: Hash
+    ) -> MevResult<(MessageV0, MessageV0)> {
+        let program = self.create_client(signer.insecure_clone())?;
+        let (state_account, id) = self.derive_pda()?;
+        match ix {
+            ParsedRaydiumClmmInstructions::Swap { amount, other_amount_threshold, accounts, sqrt_price_limit_64, is_base_input } => {
+                if accounts.len() < 16 {
+                    return Err(MevError::ValueError);
+                }
+                let front = program
+                    .request()
+                    .accounts(accounts::RaydiumClmmFrontrunSwap {
+                        payer: signer.pubkey(),
+                        amm_config: target_static_accounts[accounts[1].account_index as usize],
+                        pool_state: target_static_accounts[accounts[2].account_index as usize],
+                        input_token_account: target_static_accounts[accounts[3].account_index as usize],
+                        output_token_account: target_static_accounts[accounts[4].account_index as usize],
+                        input_vault: target_static_accounts[accounts[5].account_index as usize],
+                        output_vault: target_static_accounts[accounts[6].account_index as usize],
+                        observation_state: target_static_accounts[accounts[7].account_index as usize],
+                        token_program: Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+                        token_program_2022: Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"),
+                        memo_program: Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                        input_vault_mint: target_static_accounts[accounts[11].account_index as usize],
+                        output_vault_mint: target_static_accounts[accounts[12].account_index as usize],
+                        clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
+                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        sandwich_state: state_account
+                    })
+                    .args(args::RaydiumClmmFrontrunSwap {
+                        target_amount: *amount,
+                        target_is_base_input: *is_base_input,
+                        target_other_amount_threshold: *other_amount_threshold,
+                        target_sqrt_price_limit: *sqrt_price_limit_64,
+                        sandwich_id: id
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                let back = program
+                    .request()
+                    .accounts(accounts::RaydiumClmmBackrunSwap {
+                        payer: signer.pubkey(),
+                        amm_config: target_static_accounts[accounts[1].account_index as usize],
+                        pool_state: target_static_accounts[accounts[2].account_index as usize],
+                        input_token_account: target_static_accounts[accounts[3].account_index as usize],
+                        output_token_account: target_static_accounts[accounts[4].account_index as usize],
+                        input_vault: target_static_accounts[accounts[5].account_index as usize],
+                        output_vault: target_static_accounts[accounts[6].account_index as usize],
+                        observation_state: target_static_accounts[accounts[7].account_index as usize],
+                        token_program: Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
+                        token_program_2022: Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"),
+                        memo_program: Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                        input_vault_mint: target_static_accounts[accounts[11].account_index as usize],
+                        output_vault_mint: target_static_accounts[accounts[12].account_index as usize],
+                        clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
+                        sandwich_state: state_account
+                    })
+                    .args(args::RaydiumClmmBackrunSwap {
+                        sandwich_id: id
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                Ok((
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        front.as_slice(), 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        back.as_slice(), 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?
+                ))
+            }
+        }
+    }
+    
     fn handle_lpv4(&self, ix: ParsedRaydiumLpv4Instructions, signer: Keypair) {}
-    fn handle_clmm(&self, ix: ParsedRaydiumClmmInstructions, signer: Keypair) {}
     fn handle_stable(&self, ix: ParsedRaydiumStableSwapInstructions, signer: Keypair) {}
     fn handle_pf(&self, ix: ParsedPumpFunInstructions, signer: Keypair) {}
     fn handle_ps(&self, ix: ParsedPumpSwapInstructions, signer: Keypair) {}

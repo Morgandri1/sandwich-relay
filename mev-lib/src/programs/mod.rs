@@ -58,7 +58,7 @@ impl ParsedInstruction {
         let accounts = Account::from_account_map(ix.accounts.clone());
         let bytes = ix.data.clone();
         let res = match (program_id, ix.data[0]) {
-            (LPV4_SWAP, 0) => Self::RaydiumLpv4(ParsedRaydiumLpv4Instructions::from_bytes(bytes, accounts)),
+            (LPV4_SWAP, 9 | 11) => Self::RaydiumLpv4(ParsedRaydiumLpv4Instructions::from_bytes(bytes, accounts)),
             // (ROUTER_PROGRAM_ID, 0) => Self::RaydiumRouter(ParsedRaydiumRouterInstructions::from_bytes(bytes, accounts)),
             (STABLE_SWAP_PROGRAM_ID, 9) => Self::RaydiumStable(ParsedRaydiumStableSwapInstructions::from_bytes(bytes, accounts)),
             (RAYDIUM_CLMM_PROGRAM_ID, 1) => Self::RaydiumClmm(ParsedRaydiumClmmInstructions::from_bytes(bytes, accounts)),

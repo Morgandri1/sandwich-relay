@@ -9,6 +9,7 @@ pub const LPV4_SWAP: Pubkey = Pubkey::from_str_const("675kPX9MHTjS2zt1qfr1NYHuze
 pub enum ParsedRaydiumLpv4Instructions {
     /// 0
     Swap {
+        is_base_in: bool,
         amount_in: u64,
         minimum_amount_out: u64,
         accounts: Vec<Account>
@@ -28,6 +29,7 @@ impl ParsedRaydiumLpv4Instructions {
         min_out_bytes[..8].copy_from_slice(&bytes[9..17]);
         
         return Ok(Self::Swap {
+            is_base_in: bytes[0] == 9,
             amount_in: u64::from_le_bytes(amount_in_bytes),
             minimum_amount_out: u64::from_le_bytes(min_out_bytes),
             accounts
@@ -37,8 +39,13 @@ impl ParsedRaydiumLpv4Instructions {
     #[allow(unused)]
     pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
         match self {
-            Self::Swap { amount_in, minimum_amount_out, accounts } => {
-                let mut instruction_data = [0].to_vec();
+            Self::Swap { amount_in, minimum_amount_out, accounts, is_base_in } => {
+                let mut instruction_data = [].to_vec();
+                if *is_base_in {
+                    instruction_data.push(9);
+                } else {
+                    instruction_data.push(11);
+                }
                 instruction_data.extend_from_slice(&amount_in.to_le_bytes());
                 instruction_data.extend_from_slice(&minimum_amount_out.to_le_bytes());
                 return Ok(CompiledInstruction { 
@@ -102,6 +109,7 @@ mod test {
                 key_i.iter().map(|i| Account::new(i, false)).collect()
             ).unwrap(),
             ParsedRaydiumLpv4Instructions::Swap {
+                is_base_in: true,
                 amount_in: 10000,
                 minimum_amount_out: 11957026,
                 accounts: key_i.iter().map(|i| Account::new(i, false)).collect()

@@ -12,6 +12,7 @@ use crate::{comp::is_relevant_tx, programs::raydium::ParsedRaydiumLpv4Instructio
 #[test]
 fn should_recognize_raydium_swap() {
     let t = ParsedRaydiumLpv4Instructions::Swap { 
+        is_base_in: true,
         amount_in: 1000, 
         minimum_amount_out: 10, 
         accounts: [].to_vec()
@@ -53,7 +54,7 @@ fn should_serialize_roundtrip() {
 
 #[test]
 fn should_fetch_and_deserialize_tx() {
-    let hash = "rX3op4yVooUKnMHbJ6dWT8tr2ZkgPbdNXQ2GwTPithFh9PzQZHX7PpxKUwJ8QPTRFPaaVzchAxRBsan8xBMVkNR";
+    let hash = "cqZN3FVALhvWdBsdAPPtnfn6Ln1jsMmmg989LQ8cLfLQw8bgVki6ZSsEYtBra8RdNgE4N4iWWGY7ec1Zeo7ErD1";
     let client = RpcClient::new("https://api.mainnet-beta.solana.com");
     let sig = Signature::from_str(hash).unwrap();
     let tx = client.get_transaction_with_config(&sig, RpcTransactionConfig {

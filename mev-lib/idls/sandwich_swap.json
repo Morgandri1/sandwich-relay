@@ -470,6 +470,345 @@
       ]
     },
     {
+      "name": "raydium_clmm_backrun_swap",
+      "discriminator": [
+        216,
+        22,
+        156,
+        163,
+        231,
+        97,
+        86,
+        230
+      ],
+      "accounts": [
+        {
+          "name": "clmm_program",
+          "docs": [
+            "Raydium CLMM program"
+          ],
+          "address": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Signer account paying for the transaction"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "amm_config",
+          "docs": [
+            "The AMM configuration"
+          ]
+        },
+        {
+          "name": "pool_state",
+          "docs": [
+            "The liquidity pool state"
+          ],
+          "writable": true
+        },
+        {
+          "name": "input_token_account",
+          "docs": [
+            "Token account for input token (was output in frontrun)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "output_token_account",
+          "docs": [
+            "Token account for output token (was input in frontrun)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "input_vault",
+          "docs": [
+            "Vault for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "output_vault",
+          "docs": [
+            "Vault for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "observation_state",
+          "docs": [
+            "Oracle observation state"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "docs": [
+            "SPL token program"
+          ],
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "token_program_2022",
+          "docs": [
+            "SPL token 2022 program"
+          ],
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "memo_program",
+          "docs": [
+            "Memo program"
+          ],
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+        },
+        {
+          "name": "input_vault_mint",
+          "docs": [
+            "Input token mint (output in frontrun)"
+          ]
+        },
+        {
+          "name": "output_vault_mint",
+          "docs": [
+            "Output token mint (input in frontrun)"
+          ]
+        },
+        {
+          "name": "sandwich_state",
+          "docs": [
+            "Account containing sandwich state between frontrun and backrun"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  109,
+                  109,
+                  95,
+                  115,
+                  97,
+                  110,
+                  100,
+                  119,
+                  105,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "sandwich_id"
+              },
+              {
+                "kind": "account",
+                "path": "output_vault_mint"
+              },
+              {
+                "kind": "account",
+                "path": "input_vault_mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "sandwich_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "raydium_clmm_frontrun_swap",
+      "discriminator": [
+        101,
+        89,
+        161,
+        33,
+        143,
+        209,
+        156,
+        137
+      ],
+      "accounts": [
+        {
+          "name": "clmm_program",
+          "docs": [
+            "Raydium CLMM program"
+          ],
+          "address": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+        },
+        {
+          "name": "payer",
+          "docs": [
+            "Signer account paying for the transaction"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "amm_config",
+          "docs": [
+            "The AMM configuration"
+          ]
+        },
+        {
+          "name": "pool_state",
+          "docs": [
+            "The liquidity pool state"
+          ],
+          "writable": true
+        },
+        {
+          "name": "input_token_account",
+          "docs": [
+            "Token account for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "output_token_account",
+          "docs": [
+            "Token account for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "input_vault",
+          "docs": [
+            "Vault for input token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "output_vault",
+          "docs": [
+            "Vault for output token"
+          ],
+          "writable": true
+        },
+        {
+          "name": "observation_state",
+          "docs": [
+            "Oracle observation state"
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "docs": [
+            "SPL token program"
+          ],
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "token_program_2022",
+          "docs": [
+            "SPL token 2022 program"
+          ],
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "memo_program",
+          "docs": [
+            "Memo program"
+          ],
+          "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+        },
+        {
+          "name": "input_vault_mint",
+          "docs": [
+            "Input token mint"
+          ]
+        },
+        {
+          "name": "output_vault_mint",
+          "docs": [
+            "Output token mint"
+          ]
+        },
+        {
+          "name": "sandwich_state",
+          "docs": [
+            "Account to store sandwich state between frontrun and backrun"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  109,
+                  109,
+                  95,
+                  115,
+                  97,
+                  110,
+                  100,
+                  119,
+                  105,
+                  99,
+                  104
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "sandwich_id"
+              },
+              {
+                "kind": "account",
+                "path": "input_vault_mint"
+              },
+              {
+                "kind": "account",
+                "path": "output_vault_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "docs": [
+            "System program for account creation"
+          ],
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "target_amount",
+          "type": "u64"
+        },
+        {
+          "name": "target_other_amount_threshold",
+          "type": "u64"
+        },
+        {
+          "name": "target_sqrt_price_limit",
+          "type": "u128"
+        },
+        {
+          "name": "target_is_base_input",
+          "type": "bool"
+        },
+        {
+          "name": "sandwich_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "raydium_clmm_swap",
       "discriminator": [
         47,
@@ -1666,6 +2005,19 @@
       ]
     },
     {
+      "name": "ClmmSandwichState",
+      "discriminator": [
+        112,
+        158,
+        64,
+        1,
+        46,
+        222,
+        196,
+        114
+      ]
+    },
+    {
       "name": "CpmmAmmConfig",
       "discriminator": [
         180,
@@ -1719,6 +2071,19 @@
     }
   ],
   "events": [
+    {
+      "name": "ClmmSandwichCompleteEvent",
+      "discriminator": [
+        207,
+        6,
+        72,
+        209,
+        94,
+        25,
+        161,
+        85
+      ]
+    },
     {
       "name": "SandwichCompleteEvent",
       "discriminator": [
@@ -2235,6 +2600,131 @@
                 32
               ]
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClmmSandwichCompleteEvent",
+      "docs": [
+        "Event emitted when a sandwich attack is completed"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sandwich_id",
+            "docs": [
+              "Unique identifier for this sandwich operation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "profit",
+            "docs": [
+              "Net profit from the sandwich"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "input_amount",
+            "docs": [
+              "Initial input amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "output_amount",
+            "docs": [
+              "Final output amount"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Timestamp of completion"
+            ],
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ClmmSandwichState",
+      "docs": [
+        "The fundamental state for tracking sandwich attacks on CLMM pools"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "frontrun_output_amount",
+            "docs": [
+              "Amount of tokens received from the frontrun swap"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "frontrun_input_amount",
+            "docs": [
+              "Amount of tokens spent in the frontrun swap"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "target_tx_signature",
+            "docs": [
+              "The target transaction signature (for tracking purposes)"
+            ],
+            "type": {
+              "array": [
+                "u8",
+                64
+              ]
+            }
+          },
+          {
+            "name": "sandwich_id",
+            "docs": [
+              "Unique identifier for this sandwich operation"
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "is_complete",
+            "docs": [
+              "Whether this sandwich has been completed"
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "token_in_mint",
+            "docs": [
+              "The input token mint for the sandwich"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "token_out_mint",
+            "docs": [
+              "The output token mint for the sandwich"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Timestamp of sandwich creation"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "docs": [
+              "Bump for the PDA"
+            ],
+            "type": "u8"
           }
         ]
       }
