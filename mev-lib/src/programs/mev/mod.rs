@@ -91,6 +91,9 @@ impl MevInstructionBuilder {
                 if accounts.len() < 13 {
                     return Err(MevError::ValueError)
                 }
+                if target_static_accounts[accounts[10].account_index as usize] != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
+                    return Err(MevError::FailedToBuildTx)
+                }
                 let front_ix = program
                     .request()
                     .accounts(accounts::RaydiumCpmmFrontrunSwapBaseInput {
@@ -158,6 +161,9 @@ impl MevInstructionBuilder {
             ParsedRaydiumCpmmInstructions::SwapOut { max_amount_in, amount_out, accounts, .. } => {
                 if accounts.len() < 13 {
                     return Err(MevError::ValueError)
+                }
+                if target_static_accounts[accounts[10].account_index as usize] != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
+                    return Err(MevError::FailedToBuildTx)
                 }
                 let front_ix = program
                     .request()
@@ -240,14 +246,24 @@ impl MevInstructionBuilder {
                 if accounts.len() < 16 {
                     return Err(MevError::ValueError);
                 }
+                if target_static_accounts[accounts[11].account_index as usize] 
+                    != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
+                    return Err(MevError::FailedToBuildTx)
+                }
                 let front = program
                     .request()
                     .accounts(accounts::RaydiumClmmFrontrunSwap {
                         payer: signer.pubkey(),
                         amm_config: target_static_accounts[accounts[1].account_index as usize],
                         pool_state: target_static_accounts[accounts[2].account_index as usize],
-                        input_token_account: target_static_accounts[accounts[3].account_index as usize],
-                        output_token_account: target_static_accounts[accounts[4].account_index as usize],
+                        input_token_account: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &target_static_accounts[accounts[11].account_index as usize]
+                        ),
+                        output_token_account: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &target_static_accounts[accounts[12].account_index as usize]
+                        ),
                         input_vault: target_static_accounts[accounts[5].account_index as usize],
                         output_vault: target_static_accounts[accounts[6].account_index as usize],
                         observation_state: target_static_accounts[accounts[7].account_index as usize],
@@ -276,16 +292,16 @@ impl MevInstructionBuilder {
                         payer: signer.pubkey(),
                         amm_config: target_static_accounts[accounts[1].account_index as usize],
                         pool_state: target_static_accounts[accounts[2].account_index as usize],
-                        input_token_account: target_static_accounts[accounts[3].account_index as usize],
-                        output_token_account: target_static_accounts[accounts[4].account_index as usize],
-                        input_vault: target_static_accounts[accounts[5].account_index as usize],
-                        output_vault: target_static_accounts[accounts[6].account_index as usize],
+                        input_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[12].account_index as usize]),
+                        output_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[11].account_index as usize]),
+                        input_vault: target_static_accounts[accounts[6].account_index as usize],
+                        output_vault: target_static_accounts[accounts[5].account_index as usize],
                         observation_state: target_static_accounts[accounts[7].account_index as usize],
                         token_program: Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
                         token_program_2022: Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"),
                         memo_program: Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-                        input_vault_mint: target_static_accounts[accounts[11].account_index as usize],
-                        output_vault_mint: target_static_accounts[accounts[12].account_index as usize],
+                        input_vault_mint: target_static_accounts[accounts[12].account_index as usize],
+                        output_vault_mint: target_static_accounts[accounts[11].account_index as usize],
                         clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
                         sandwich_state: state_account
                     })
@@ -326,6 +342,10 @@ impl MevInstructionBuilder {
             ParsedPumpSwapInstructions::Buy { base_amount_out, max_quote_amount_in, accounts, .. } => {
                 if accounts.len() < 19 {
                     return Err(MevError::ValueError);
+                }
+                if target_static_accounts[accounts[4].account_index as usize] 
+                    != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
+                    return Err(MevError::FailedToBuildTx)
                 }
                 let front = program
                     .request()
@@ -408,6 +428,11 @@ impl MevInstructionBuilder {
                 if accounts.len() < 19 {
                     return Err(MevError::ValueError)
                 }
+                if target_static_accounts[accounts[3].account_index as usize]
+                    != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
+                    return Err(MevError::FailedToBuildTx)
+                }
+                
                 let front = program
                     .request()
                     .accounts(accounts::PumpFrontrunSell {
@@ -503,6 +528,9 @@ impl MevInstructionBuilder {
                     return Err(MevError::ValueError)
                 }
                 let mint_in = get_mint_of_account(&target_static_accounts[accounts[15].account_index as usize])?;
+                if mint_in != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
+                    return Err(MevError::FailedToBuildTx)
+                }
                 let mint_out = get_mint_of_account(&target_static_accounts[accounts[16].account_index as usize])?;
                 
                 let front = program
@@ -618,16 +646,19 @@ impl MevInstructionBuilder {
                     .request()
                     .accounts(accounts::PumpfunFrontrunBuy {
                         global: target_static_accounts[accounts[0].account_index as usize],
-                        protocol_fee_recipient: target_static_accounts[accounts[0].account_index as usize],
-                        mint: target_static_accounts[accounts[0].account_index as usize],
-                        bonding_curve: target_static_accounts[accounts[0].account_index as usize],
-                        bonding_curve_ata: target_static_accounts[accounts[0].account_index as usize],
-                        user_ata: target_static_accounts[accounts[0].account_index as usize],
-                        user: target_static_accounts[accounts[0].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[1].account_index as usize],
+                        mint: target_static_accounts[accounts[2].account_index as usize],
+                        bonding_curve: target_static_accounts[accounts[3].account_index as usize],
+                        bonding_curve_ata: target_static_accounts[accounts[4].account_index as usize],
+                        user_ata: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &target_static_accounts[accounts[2].account_index as usize]
+                        ),
+                        user: signer.pubkey(),
                         system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
-                        creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
-                        token_program: target_static_accounts[accounts[0].account_index as usize],
-                        event_authority: target_static_accounts[accounts[0].account_index as usize],
+                        creator_fee_vault: target_static_accounts[accounts[6].account_index as usize],
+                        token_program: target_static_accounts[accounts[7].account_index as usize],
+                        event_authority: target_static_accounts[accounts[8].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
                         associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
                         sandwich_state: state_account
@@ -648,8 +679,11 @@ impl MevInstructionBuilder {
                         mint: target_static_accounts[accounts[0].account_index as usize],
                         bonding_curve: target_static_accounts[accounts[0].account_index as usize],
                         bonding_curve_ata: target_static_accounts[accounts[0].account_index as usize],
-                        user_ata: target_static_accounts[accounts[0].account_index as usize],
-                        user: target_static_accounts[accounts[0].account_index as usize],
+                        user_ata: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &target_static_accounts[accounts[2].account_index as usize]
+                        ),
+                        user: signer.pubkey(),
                         system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
                         creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
                         token_program: target_static_accounts[accounts[0].account_index as usize],
@@ -679,7 +713,7 @@ impl MevInstructionBuilder {
                 ))
             },
             ParsedPumpFunInstructions::Sell { .. } => {
-                Err(MevError::FailedToDeserialize)
+                Err(MevError::FailedToBuildTx)
             }
         }
     }

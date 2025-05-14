@@ -1,5 +1,5 @@
-# Jito Relayer
-Jito Relayer acts as a transaction processing unit (TPU) proxy for Solana validators.
+# Sandwich Relayer
+This Jito Relayer fork acts as a transaction processing unit (TPU) proxy for Solana validators which can read and identify target transactions to engage in a sandwich attack.
 
 # Building
 ```shell
