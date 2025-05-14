@@ -41,4 +41,4 @@ lazy_static = "1.4.0"
 anchor-client = "0.31.1"
 anchor-lang = "0.31.1"
 borsh = "0.10.3"
-rand = { version = "0.9.1", features = ["thread_rng"]}
+uuid = { version = "1.16.0", features = ["v4"]}

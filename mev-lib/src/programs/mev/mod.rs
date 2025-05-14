@@ -33,10 +33,10 @@ pub enum MevInstructionBuilder {
 }
 
 impl MevInstructionBuilder {
-    fn derive_pda(&self) -> MevResult<(Pubkey, u64)> {
-        let swap_id: u64 = rand::random();
-        match Pubkey::try_find_program_address(&[b"sandwich", &swap_id.to_le_bytes()], &MEV_PROGRAM_ID) {
-            Some((key, _)) => Ok((key, swap_id)),
+    fn derive_pda(&self) -> MevResult<(Pubkey, String)> {
+        let swap_id: uuid::Uuid = uuid::Uuid::new_v4();
+        match Pubkey::try_find_program_address(&[b"sandwich", &swap_id.to_string().as_bytes()], &MEV_PROGRAM_ID) {
+            Some((key, _)) => Ok((key, swap_id.to_string())),
             None => Err(MevError::FailedToBuildTx)
         }
     }
@@ -117,7 +117,7 @@ impl MevInstructionBuilder {
                     .args(args::RaydiumCpmmFrontrunSwapBaseInput {
                         target_amount_in: *amount,
                         target_minimum_amount_out: *min_amount_out,
-                        sandwich_id: id
+                        sandwich_id: id.clone()
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
@@ -188,7 +188,7 @@ impl MevInstructionBuilder {
                     .args(args::RaydiumCpmmFrontrunSwapBaseOutput {
                         target_amount_out: *amount_out,
                         target_max_amount_in: *max_amount_in,
-                        sandwich_id: id
+                        sandwich_id: id.clone()
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
@@ -281,7 +281,7 @@ impl MevInstructionBuilder {
                         target_is_base_input: *is_base_input,
                         target_other_amount_threshold: *other_amount_threshold,
                         target_sqrt_price_limit_x64: *sqrt_price_limit_64,
-                        sandwich_id: id
+                        sandwich_id: id.clone()
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
@@ -569,7 +569,7 @@ impl MevInstructionBuilder {
                     .args(args::RaydiumFrontrunAmmSwapBaseIn {
                         target_amount_in: *amount_in,
                         target_minimum_amount_out: *minimum_amount_out,
-                        sandwich_id: id
+                        sandwich_id: id.clone()
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
@@ -666,7 +666,7 @@ impl MevInstructionBuilder {
                     .args(args::PumpfunFrontrunBuy {
                         target_base_amount_out: *amount,
                         target_max_quote_amount_in: *max_sol_cost,
-                        sandwich_id: id
+                        sandwich_id: id.clone()
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;

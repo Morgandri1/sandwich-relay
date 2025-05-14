@@ -191,7 +191,7 @@
       "args": [
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -672,7 +672,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -841,7 +841,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -957,7 +957,7 @@
       "args": [
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -1171,7 +1171,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -1313,7 +1313,7 @@
       "args": [
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -1475,7 +1475,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -1776,7 +1776,7 @@
       "args": [
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -1952,7 +1952,7 @@
       "args": [
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -2140,7 +2140,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -2328,7 +2328,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     },
@@ -2923,7 +2923,7 @@
         },
         {
           "name": "sandwich_id",
-          "type": "u64"
+          "type": "string"
         }
       ]
     }
@@ -4387,7 +4387,7 @@
         "fields": [
           {
             "name": "sandwich_id",
-            "type": "u64"
+            "type": "string"
           },
           {
             "name": "profit",
@@ -4432,7 +4432,7 @@
           },
           {
             "name": "sandwich_id",
-            "type": "u64"
+            "type": "string"
           },
           {
             "name": "is_complete",
