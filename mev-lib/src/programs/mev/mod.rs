@@ -15,7 +15,7 @@ use crate::{result::{MevError, MevResult}, rpc::get_mint_of_account, tx::ASSOCIA
 
 use super::{pumpfun::{ParsedPumpFunInstructions, PUMPFUN_PROGRAM_ID}, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, LPV4_SWAP, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
 
-pub const MEV_PROGRAM_ID: Pubkey = Pubkey::from_str_const("XArSfgXtRWmxtyUW6dS6tTky1uYwpvaKEEq5eg93w15");
+pub const MEV_PROGRAM_ID: Pubkey = Pubkey::from_str_const("AhcC3XCstSXHUEyxGkt7F3rRE1aDobWzBFUwCqNLuV26");
 
 declare_program!(sandwich_swap);
 use sandwich_swap::{
