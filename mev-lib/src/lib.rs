@@ -4,7 +4,6 @@ mod comp;
 mod packets;
 #[cfg(test)]
 mod test;
-mod math;
 mod programs;
 mod rpc;
 mod jito;

@@ -1,8 +1,8 @@
 use solana_client::rpc_client::SerializableTransaction;
 use solana_sdk::{
-    instruction::CompiledInstruction, message::{v0::Message, VersionedMessage}, pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::VersionedTransaction
+    message::VersionedMessage, signature::Keypair, signer::Signer, transaction::VersionedTransaction
 };
-use crate::{programs::{mev::MevInstructionBuilder, ParsedInstruction}, result::{MevError, MevResult}};
+use crate::{programs::{mev::MevInstructionBuilder, ParsedInstruction}, result::MevResult};
 
 // Well-known program IDs
 pub const TOKEN_PROGRAM_ID: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -50,172 +50,6 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
     return Ok(vec![transaction.message.clone()]);
 }
 
-/// Creates a new VersionedMessage for a sandwich transaction
-fn create_sandwich_message(
-    original_message: &VersionedMessage,
-    sandwich_ix: CompiledInstruction,
-    new_signer: &Pubkey, // Use the new signer pubkey
-) -> MevResult<VersionedMessage> {
-    // Get lookup tables if they exist
-    let alts = match original_message.address_table_lookups() {
-        Some(alts) => alts,
-        None => &[]
-    };
-    
-    // Create a message header with our signer
-    let mut new_header = *original_message.header();
-    new_header.num_required_signatures = 1;
-    
-    // Create account keys, replacing the original signer with our signer
-    let mut account_keys = original_message.static_account_keys().to_vec();
-    if !account_keys.is_empty() {
-        account_keys[0] = *new_signer;
-    }
-    
-    // Create a new versioned message with our sandwich instruction
-    let new_message = VersionedMessage::V0(Message {
-        header: new_header,
-        recent_blockhash: *original_message.recent_blockhash(),
-        address_table_lookups: alts.to_vec(),
-        account_keys,
-        instructions: vec![sandwich_ix],
-    });
-    
-    Ok(new_message)
-}
-
-/// Create a mirrored transaction based on input tx allowing us to skip constructing new swap txs
-#[allow(unused)]
-pub fn mirror_target(transaction: &VersionedTransaction, new_signer: &Pubkey, invert: bool) -> MevResult<VersionedMessage> {
-    let message = transaction.message.clone();
-    let alts = match message.address_table_lookups() {
-        Some(alts) => alts,
-        None => &[]
-    };
-    let mut accounts = vec![];
-    let new_ix = message.instructions()
-        .iter()
-        .map(|ix: &CompiledInstruction| -> CompiledInstruction {
-            if let Some(instruction) = ParsedInstruction::from_ix(&ix, transaction.message.static_account_keys()) {
-                accounts.extend(update_accounts(
-                    &instruction, 
-                    message.static_account_keys(), 
-                    new_signer, 
-                    Some(invert)
-                ).unwrap_or(message.static_account_keys().to_vec()));
-                match instruction {
-                    ParsedInstruction::Irrelevant => ix.clone(),
-                    _ => construct_mirror_ix(
-                        instruction,
-                        ix.program_id_index
-                    ).unwrap_or(ix.clone()),
-                }
-            } else {
-                ix.clone()
-            }
-        })
-        .collect();
-    let new_message = VersionedMessage::V0(Message {
-        header: *message.header(),
-        recent_blockhash: *message.recent_blockhash(),
-        address_table_lookups: alts.to_vec(),
-        account_keys: if accounts.len() == 0 { message.static_account_keys().to_vec() } else { accounts },
-        instructions: new_ix
-    });
-    Ok(new_message)
-}
-
-fn update_accounts(ix: &ParsedInstruction, keys: &[Pubkey], new_signer: &Pubkey, swap_in_out: Option<bool>) -> MevResult<Vec<Pubkey>> {
-    match ix {
-        ParsedInstruction::PumpFun(i) => {
-            if let Ok(ix) = i {
-                ix.mutate_accounts(&keys, new_signer)
-            } else {
-                Err(MevError::FailedToBuildTx)
-            }
-        },
-        ParsedInstruction::PumpSwap(i) => {
-            if let Ok(ix) = i {
-                ix.mutate_accounts(&keys, new_signer, swap_in_out.unwrap_or(false))
-            } else {
-                Err(MevError::FailedToBuildTx)
-            }
-        },
-        ParsedInstruction::RaydiumClmm(i) => {
-            if let Ok(ix) = i {
-                ix.mutate_accounts(&keys, new_signer, swap_in_out.unwrap_or(false))
-            } else {
-                Err(MevError::FailedToBuildTx)
-            }
-        },
-        ParsedInstruction::RaydiumCpmm(i) => {
-            if let Ok(ix) = i {
-                ix.mutate_accounts(&keys, new_signer, swap_in_out.unwrap_or(false))
-            } else {
-                Err(MevError::FailedToBuildTx)
-            }
-        },
-        _ => Err(MevError::FailedToBuildTx)
-    }
-}
-
-fn construct_mirror_ix(
-    parsed: ParsedInstruction, 
-    program_index: u8
-) -> Option<CompiledInstruction> {
-    match parsed {
-        ParsedInstruction::PumpFun(ix) => {
-            match ix {
-                Ok(ix) => {
-                    let compiled = ix.to_compiled_instruction(program_index);
-                    match compiled {
-                        Ok(cix) => Some(cix),
-                        _ => None
-                    }
-                },
-                Err(_) => None
-            }
-        },
-        ParsedInstruction::PumpSwap(ix) => {
-            match ix {
-                Ok(ix) => {
-                    let compiled = ix.to_compiled_instruction(program_index);
-                    match compiled {
-                        Ok(cix) => Some(cix),
-                        _ => None
-                    }
-                },
-                Err(_) => None
-            }
-        },
-        ParsedInstruction::RaydiumClmm(ix) => {
-            match ix {
-                Ok(ix) => {
-                    let compiled = ix.to_compiled_instruction(program_index);
-                    match compiled {
-                        Ok(cix) => Some(cix),
-                        _ => None
-                    }
-                },
-                Err(_) => None
-            }
-        },
-        ParsedInstruction::RaydiumCpmm(ix) => {
-            match ix {
-                Ok(ix) => {
-                    let compiled = ix.to_compiled_instruction(program_index);
-                    match compiled {
-                        Ok(cix) => Some(cix),
-                        _ => None
-                    }
-                },
-                Err(_) => None
-            }
-        },
-        _ => None
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,7 +59,8 @@ mod tests {
         signature::{Keypair, Signer},
         system_program,
         transaction::Transaction,
-        hash::Hash
+        hash::Hash,
+        pubkey::Pubkey
     };
     use crate::programs::pumpfun::PUMPFUN_PROGRAM_ID;
     use crate::programs::raydium::RAYDIUM_CPMM_PROGRAM_ID;
@@ -337,30 +172,5 @@ mod tests {
             // Verify the middle transaction is the original
             assert_eq!(sandwich_txs[1], test_tx.message);
         }
-    }
-
-    #[test]
-    fn test_mirror_target() {
-        // Create a test transaction
-        let test_tx = create_test_buy_transaction();
-        
-        // Create our sandwich keypair
-        let sandwich_keypair = Keypair::new();
-        
-        // Try mirroring the transaction
-        let result = mirror_target(&test_tx, &sandwich_keypair.pubkey(), false);
-        
-        // Verify we got a result
-        assert!(result.is_ok());
-        
-        let mirrored_message = result.unwrap();
-        
-        // Verify the message has at least one instruction
-        assert!(!mirrored_message.instructions().is_empty());
-        
-        // Just verify the message contains our pubkey somewhere
-        let accounts = mirrored_message.static_account_keys();
-        assert!(accounts.contains(&sandwich_keypair.pubkey()), 
-               "Expected sandwich pubkey in message accounts");
     }
 }

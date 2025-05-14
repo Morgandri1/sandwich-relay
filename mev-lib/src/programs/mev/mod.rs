@@ -11,9 +11,9 @@ use anchor_client::{
 };
 use spl_associated_token_account::get_associated_token_address;
 
-use crate::result::{MevError, MevResult};
+use crate::{result::{MevError, MevResult}, rpc::get_mint_of_account, tx::{ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID}};
 
-use super::{pumpfun::ParsedPumpFunInstructions, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
+use super::{pumpfun::{ParsedPumpFunInstructions, PUMPFUN_PROGRAM_ID}, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, LPV4_SWAP, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
 
 pub const MEV_PROGRAM_ID: Pubkey = Pubkey::from_str_const("XArSfgXtRWmxtyUW6dS6tTky1uYwpvaKEEq5eg93w15");
 
@@ -35,7 +35,7 @@ pub enum MevInstructionBuilder {
 impl MevInstructionBuilder {
     fn derive_pda(&self) -> MevResult<(Pubkey, u64)> {
         let swap_id: u64 = rand::random();
-        match Pubkey::try_find_program_address(&[&swap_id.to_le_bytes()], &MEV_PROGRAM_ID) {
+        match Pubkey::try_find_program_address(&[b"sandwich", &swap_id.to_le_bytes()], &MEV_PROGRAM_ID) {
             Some((key, _)) => Ok((key, swap_id)),
             None => Err(MevError::FailedToBuildTx)
         }
@@ -63,6 +63,8 @@ impl MevInstructionBuilder {
             Self::RaydiumCpmm(ix) => self.handle_cpmm(ix, signer, target_static_accounts, recent_blockhash),
             Self::RaydiumClmm(ix) => self.handle_clmm(ix, signer, target_static_accounts, recent_blockhash),
             Self::PumpSwap(ix) => self.handle_ps(ix, signer, target_static_accounts, recent_blockhash),
+            Self::PumpFun(ix) => self.handle_pf(ix, signer, target_static_accounts, recent_blockhash),
+            Self::RaydiumLpv4(ix) => self.handle_lpv4(ix, signer, target_static_accounts, recent_blockhash),
             _ => Err(MevError::UnknownError)
         }
     }
@@ -262,7 +264,7 @@ impl MevInstructionBuilder {
                         target_amount: *amount,
                         target_is_base_input: *is_base_input,
                         target_other_amount_threshold: *other_amount_threshold,
-                        target_sqrt_price_limit: *sqrt_price_limit_64,
+                        target_sqrt_price_limit_x64: *sqrt_price_limit_64,
                         sandwich_id: id
                     })
                     .instructions()
@@ -327,7 +329,7 @@ impl MevInstructionBuilder {
                 }
                 let front = program
                     .request()
-                    .accounts(accounts::PumpBuy {
+                    .accounts(accounts::PumpFrontrunBuy {
                         pool: target_static_accounts[accounts[0].account_index as usize],
                         user: signer.pubkey(),
                         global_config: target_static_accounts[accounts[2].account_index as usize],
@@ -347,18 +349,20 @@ impl MevInstructionBuilder {
                         pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
                         program: target_static_accounts[accounts[16].account_index as usize],
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
-                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
+                        sandwich_state: state_account
                     })
-                    .args(args::PumpBuy {
+                    .args(args::PumpFrontrunBuy {
                         max_quote_amount_in: *max_quote_amount_in,
-                        base_amount_out: *base_amount_out
+                        base_amount_out: *base_amount_out,
+                        sandwich_id: id
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 
                 let back = program
                     .request()
-                    .accounts(accounts::PumpSell {
+                    .accounts(accounts::PumpBackrunBuy {
                         pool: target_static_accounts[accounts[0].account_index as usize],
                         user: signer.pubkey(),
                         global_config: target_static_accounts[accounts[2].account_index as usize],
@@ -378,12 +382,10 @@ impl MevInstructionBuilder {
                         pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
                         program: target_static_accounts[accounts[16].account_index as usize],
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
-                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
+                        sandwich_state: state_account
                     })
-                    .args(args::PumpBuy { // Update to be sandwich ix which only takes state account
-                        max_quote_amount_in: *max_quote_amount_in,
-                        base_amount_out: *base_amount_out
-                    })
+                    .args(args::PumpBackrunBuy { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 
@@ -408,7 +410,7 @@ impl MevInstructionBuilder {
                 }
                 let front = program
                     .request()
-                    .accounts(accounts::PumpSell {
+                    .accounts(accounts::PumpFrontrunSell {
                         pool: target_static_accounts[accounts[0].account_index as usize],
                         user: signer.pubkey(),
                         global_config: target_static_accounts[accounts[2].account_index as usize],
@@ -428,18 +430,20 @@ impl MevInstructionBuilder {
                         pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
                         program: target_static_accounts[accounts[16].account_index as usize],
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
-                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
+                        sandwich_state: state_account
                     })
-                    .args(args::PumpSell { 
+                    .args(args::PumpFrontrunSell {
                         base_amount_in: *base_amount_in,
-                        min_quote_amount_out: *min_quote_amount_out
+                        min_quote_amount_out: *min_quote_amount_out,
+                        sandwich_id: id
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 
                 let back = program
                     .request()
-                    .accounts(accounts::PumpBuy {
+                    .accounts(accounts::PumpBackrunSell {
                         pool: target_static_accounts[accounts[0].account_index as usize],
                         user: signer.pubkey(),
                         global_config: target_static_accounts[accounts[2].account_index as usize],
@@ -459,11 +463,202 @@ impl MevInstructionBuilder {
                         pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
                         program: target_static_accounts[accounts[16].account_index as usize],
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
-                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize])
+                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
+                        sandwich_state: state_account
                     })
-                    .args(args::PumpSell { // Update to be sandwich ix which only takes state account
-                        base_amount_in: *base_amount_in,
-                        min_quote_amount_out: *min_quote_amount_out
+                    .args(args::PumpBackrunSell { })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                Ok((
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &front, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &back, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?
+                ))
+            }
+        }
+    }
+    
+    fn handle_lpv4(
+        &self, 
+        ix: &ParsedRaydiumLpv4Instructions, 
+        signer: &Keypair, 
+        target_static_accounts: &[Pubkey],
+        recent_blockhash: Hash
+    ) -> MevResult<(MessageV0, MessageV0)> {
+        let program = self.create_client(signer.insecure_clone())?;
+        let (state_account, id) = self.derive_pda()?;
+        match ix {
+            ParsedRaydiumLpv4Instructions::Swap { amount_in, minimum_amount_out, accounts, .. } => {
+                if accounts.len() < 18 {
+                    return Err(MevError::ValueError)
+                }
+                let mint_in = get_mint_of_account(&target_static_accounts[accounts[15].account_index as usize])?;
+                let mint_out = get_mint_of_account(&target_static_accounts[accounts[16].account_index as usize])?;
+                
+                let front = program
+                    .request()
+                    .accounts(accounts::RaydiumFrontrunAmmSwapBaseIn {
+                        token_program: target_static_accounts[accounts[0].account_index as usize],
+                        amm: target_static_accounts[accounts[1].account_index as usize],
+                        amm_authority: target_static_accounts[accounts[2].account_index as usize],
+                        amm_open_orders: target_static_accounts[accounts[3].account_index as usize],
+                        amm_target_orders: target_static_accounts[accounts[4].account_index as usize],
+                        pool_coin_token_account: target_static_accounts[accounts[5].account_index as usize],
+                        pool_pc_token_account: target_static_accounts[accounts[6].account_index as usize],
+                        serum_program: target_static_accounts[accounts[7].account_index as usize],
+                        serum_market: target_static_accounts[accounts[8].account_index as usize],
+                        serum_bids: target_static_accounts[accounts[9].account_index as usize],
+                        serum_asks: target_static_accounts[accounts[10].account_index as usize],
+                        serum_event_queue: target_static_accounts[accounts[11].account_index as usize],
+                        serum_coin_vault_account: target_static_accounts[accounts[12].account_index as usize],
+                        serum_pc_vault_account: target_static_accounts[accounts[13].account_index as usize],
+                        serum_vault_signer: target_static_accounts[accounts[14].account_index as usize],
+                        user_source_token_account: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &mint_in
+                        ),
+                        user_target_token_account: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &mint_out
+                        ),
+                        base_mint: mint_in,
+                        sandwich_state: state_account,
+                        user_source_owner: signer.pubkey(),
+                        associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
+                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        amm_program: LPV4_SWAP
+                    })
+                    .args(args::RaydiumFrontrunAmmSwapBaseIn {
+                        target_amount_in: *amount_in,
+                        target_minimum_amount_out: *minimum_amount_out,
+                        sandwich_id: id
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                let back = program
+                    .request()
+                    .accounts(accounts::BackrunRaydiumAmmSwapBaseIn {
+                        token_program: target_static_accounts[accounts[0].account_index as usize],
+                        amm: target_static_accounts[accounts[1].account_index as usize],
+                        amm_authority: target_static_accounts[accounts[2].account_index as usize],
+                        amm_open_orders: target_static_accounts[accounts[3].account_index as usize],
+                        amm_target_orders: target_static_accounts[accounts[4].account_index as usize],
+                        pool_coin_token_account: target_static_accounts[accounts[5].account_index as usize],
+                        pool_pc_token_account: target_static_accounts[accounts[6].account_index as usize],
+                        serum_program: target_static_accounts[accounts[7].account_index as usize],
+                        serum_market: target_static_accounts[accounts[8].account_index as usize],
+                        serum_bids: target_static_accounts[accounts[9].account_index as usize],
+                        serum_asks: target_static_accounts[accounts[10].account_index as usize],
+                        serum_event_queue: target_static_accounts[accounts[11].account_index as usize],
+                        serum_coin_vault_account: target_static_accounts[accounts[12].account_index as usize],
+                        serum_pc_vault_account: target_static_accounts[accounts[13].account_index as usize],
+                        serum_vault_signer: target_static_accounts[accounts[14].account_index as usize],
+                        user_source_token_account: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &mint_in
+                        ),
+                        user_target_token_account: get_associated_token_address(
+                            &signer.pubkey(), 
+                            &mint_out
+                        ),
+                        base_mint: mint_in,
+                        sandwich_state: state_account,
+                        user_source_owner: signer.pubkey(),
+                        amm_program: LPV4_SWAP
+                    })
+                    .args(args::BackrunRaydiumAmmSwapBaseIn {
+                        sandwich_id: id
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                    
+                Ok((
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &front, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
+                    MessageV0::try_compile(
+                        &signer.pubkey(), 
+                        &back, 
+                        &[], 
+                        recent_blockhash
+                    ).map_err(|_| MevError::FailedToBuildTx)?
+                ))
+            }
+        }
+    }
+    
+    fn handle_pf(
+        &self, 
+        ix: &ParsedPumpFunInstructions, 
+        signer: &Keypair, 
+        target_static_accounts: &[Pubkey],
+        recent_blockhash: Hash
+    ) -> MevResult<(MessageV0, MessageV0)> {
+        let program = self.create_client(signer.insecure_clone())?;
+        let (state_account, id) = self.derive_pda()?;
+        match ix {
+            ParsedPumpFunInstructions::Buy { amount, max_sol_cost, accounts, .. } => {
+                if accounts.len() < 12 {
+                    return Err(MevError::ValueError);
+                }
+                let front = program
+                    .request()
+                    .accounts(accounts::PumpfunFrontrunBuy {
+                        global: target_static_accounts[accounts[0].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[0].account_index as usize],
+                        mint: target_static_accounts[accounts[0].account_index as usize],
+                        bonding_curve: target_static_accounts[accounts[0].account_index as usize],
+                        bonding_curve_ata: target_static_accounts[accounts[0].account_index as usize],
+                        user_ata: target_static_accounts[accounts[0].account_index as usize],
+                        user: target_static_accounts[accounts[0].account_index as usize],
+                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
+                        token_program: target_static_accounts[accounts[0].account_index as usize],
+                        event_authority: target_static_accounts[accounts[0].account_index as usize],
+                        pump_amm_program: PUMPFUN_PROGRAM_ID,
+                        associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
+                        sandwich_state: state_account
+                    })
+                    .args(args::PumpfunFrontrunBuy {
+                        target_base_amount_out: *amount,
+                        target_max_quote_amount_in: *max_sol_cost,
+                        sandwich_id: id
+                    })
+                    .instructions()
+                    .map_err(|_| MevError::FailedToBuildTx)?;
+                
+                let back = program
+                    .request()
+                    .accounts(accounts::PumpfunBackrunBuy {
+                        global: target_static_accounts[accounts[0].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[0].account_index as usize],
+                        mint: target_static_accounts[accounts[0].account_index as usize],
+                        bonding_curve: target_static_accounts[accounts[0].account_index as usize],
+                        bonding_curve_ata: target_static_accounts[accounts[0].account_index as usize],
+                        user_ata: target_static_accounts[accounts[0].account_index as usize],
+                        user: target_static_accounts[accounts[0].account_index as usize],
+                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
+                        token_program: target_static_accounts[accounts[0].account_index as usize],
+                        event_authority: target_static_accounts[accounts[0].account_index as usize],
+                        pump_amm_program: PUMPFUN_PROGRAM_ID,
+                        sandwich_state: state_account
+                    })
+                    .args(args::PumpfunBackrunBuy {
+                        sandwich_id: id
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
@@ -477,21 +672,15 @@ impl MevInstructionBuilder {
                     ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
                         &signer.pubkey(), 
-                        &front, 
+                        &back, 
                         &[], 
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
+            },
+            ParsedPumpFunInstructions::Sell { amount, min_sol_output, accounts, .. } => {
+                unimplemented!()
             }
         }
     }
-    
-    fn handle_lpv4(&self, ix: ParsedRaydiumLpv4Instructions, signer: Keypair) {}
-    fn handle_stable(&self, ix: ParsedRaydiumStableSwapInstructions, signer: Keypair) {}
-    fn handle_pf(&self, ix: ParsedPumpFunInstructions, signer: Keypair) {}
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
 }
