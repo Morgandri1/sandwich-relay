@@ -1,4 +1,4 @@
-use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 
 use crate::result::{MevError, MevResult};
 use super::Account;
@@ -52,31 +52,6 @@ impl ParsedPumpSwapInstructions {
         }
     }
     
-    pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
-        match self {
-            Self::Buy { base_amount_out, max_quote_amount_in, accounts, discriminator } => {
-                let mut instruction_data = discriminator.clone();
-                instruction_data.extend_from_slice(&base_amount_out.to_le_bytes());
-                instruction_data.extend_from_slice(&max_quote_amount_in.to_le_bytes());
-                return Ok(CompiledInstruction { 
-                    program_id_index: program_id, 
-                    accounts: accounts.iter().map(|a| a.account_index).collect(), 
-                    data: instruction_data
-                })
-            }
-            Self::Sell { discriminator, base_amount_in, min_quote_amount_out, accounts } => {
-                let mut instruction_data = discriminator.clone();
-                instruction_data.extend_from_slice(&base_amount_in.to_le_bytes());
-                instruction_data.extend_from_slice(&min_quote_amount_out.to_le_bytes());
-                return Ok(CompiledInstruction { 
-                    program_id_index: program_id, 
-                    accounts: accounts.iter().map(|a| a.account_index).collect(), 
-                    data: instruction_data
-                })
-            }
-        }
-    }
-    
     #[allow(unused)]
     pub fn base_mint(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
@@ -88,37 +63,6 @@ impl ParsedPumpSwapInstructions {
     pub fn quote_mint(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => Ok(static_keys[accounts[4].account_index as usize])
-        }
-    }
-    
-    pub fn mutate_accounts(&self, static_keys: &[Pubkey], new_sender: &Pubkey, swap_in_out: bool) -> MevResult<Vec<Pubkey>> {
-        match self {
-            Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => {
-                Ok(static_keys
-                    .iter()
-                    .map(|k| {
-                        if k == &static_keys[0] { // swap signer
-                            return *new_sender
-                        } else if k == &static_keys[accounts[6].account_index as usize] { // swap output account
-                            return spl_associated_token_account::get_associated_token_address(
-                                new_sender, 
-                                &static_keys[accounts[4].account_index as usize]
-                            )
-                        } else if k == &static_keys[accounts[5].account_index as usize] { // swap input account
-                            return spl_associated_token_account::get_associated_token_address(
-                                new_sender, 
-                                &static_keys[accounts[3].account_index as usize]
-                            )
-                        } else if swap_in_out && k == &static_keys[accounts[3].account_index as usize] { // swap mint in
-                            return static_keys[accounts[4].account_index as usize]
-                        } else if swap_in_out && k == &static_keys[accounts[4].account_index as usize] { // swap mint out
-                            return static_keys[accounts[3].account_index as usize]
-                        } else {
-                            return *k
-                        }
-                    })
-                    .collect())
-            }
         }
     }
 }
@@ -177,19 +121,6 @@ mod test {
             target.quote_mint(static_keys.as_slice()).unwrap().to_string().as_str(), 
             "BXPwhbMYw4kYcD1d1de3mNkxA9Gk5uwh2Zfck4urFb7c"
         );
-        let mutated = target.mutate_accounts(
-            static_keys.as_slice(), 
-            &Pubkey::from_str_const("11111111111111111111111111111111"), 
-            true
-        ).unwrap();
-        assert_eq!(
-            target.base_mint(mutated.as_slice()).unwrap(),
-            Pubkey::from_str_const("BXPwhbMYw4kYcD1d1de3mNkxA9Gk5uwh2Zfck4urFb7c")
-        );
-        assert_eq!(
-            mutated[0],
-            Pubkey::from_str_const("11111111111111111111111111111111")
-        )
     }
     
     #[test]
@@ -242,15 +173,6 @@ mod test {
             target.quote_mint(keys.as_slice()).unwrap().to_string().as_str(), 
             "HrJCv9sJV2587twQWqswCXLGc9oYE7QGxEiw2FVc61Hx"
         );
-        let mutated = target.mutate_accounts(
-            keys.as_slice(), 
-            &Pubkey::from_str_const("11111111111111111111111111111111"), 
-            true
-        ).unwrap();
-        assert_eq!(
-            mutated[0],
-            Pubkey::from_str_const("11111111111111111111111111111111")
-        )
     }
     
     #[test]
@@ -302,14 +224,5 @@ mod test {
             target.quote_mint(keys.as_slice()).unwrap().to_string().as_str(), 
             "2Y6r9CniLauNVVThwaLoZie6P6eXAs67hcf3ZSXxEZyi"
         );
-        let mutated = target.mutate_accounts(
-            keys.as_slice(), 
-            &Pubkey::from_str_const("11111111111111111111111111111111"), 
-            true
-        ).unwrap();
-        assert_eq!(
-            mutated[0],
-            Pubkey::from_str_const("11111111111111111111111111111111")
-        )
     }
 }

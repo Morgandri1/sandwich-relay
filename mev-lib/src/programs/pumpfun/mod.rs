@@ -1,4 +1,4 @@
-use solana_sdk::{instruction::CompiledInstruction, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 
 use crate::result::{MevError, MevResult};
 use super::Account;
@@ -51,145 +51,6 @@ impl ParsedPumpFunInstructions {
         }        
     }
     
-    pub fn to_compiled_instruction(&self, program_id: u8) -> MevResult<CompiledInstruction> {
-        match self {
-            Self::Buy { max_sol_cost, amount, accounts, discriminator } => {
-                let mut instruction_data = discriminator.clone();
-                instruction_data.extend_from_slice(&amount.to_le_bytes());
-                instruction_data.extend_from_slice(&max_sol_cost.to_le_bytes());
-                return Ok(CompiledInstruction { 
-                    program_id_index: program_id, 
-                    accounts: accounts.iter().map(|a| a.account_index).collect(), 
-                    data: instruction_data
-                })
-            },
-            Self::Sell { min_sol_output, amount, accounts, discriminator } => {
-                let mut instruction_data = discriminator.clone();
-                instruction_data.extend_from_slice(&amount.to_le_bytes());
-                instruction_data.extend_from_slice(&min_sol_output.to_le_bytes());
-                return Ok(CompiledInstruction { 
-                    program_id_index: program_id, 
-                    accounts: accounts.iter().map(|a| a.account_index).collect(), 
-                    data: instruction_data
-                })
-            }
-        }
-    }
-    
-    /// Creates a sandwich buy instruction that takes advantage of slippage in the original transaction.
-    /// This method is intended to be used before the target transaction to impact the price.
-    /// 
-    /// # Arguments
-    /// * `new_sender` - Public key of the new transaction sender (your address)
-    /// * `static_keys` - Original transaction account keys
-    /// * `program_id_index` - Index of the PumpFun program in the static keys
-    /// 
-    /// # Returns
-    /// * `MevResult<CompiledInstruction>` - The compiled sandwich buy instruction
-    pub fn create_sandwich_buy(&self, new_sender: &Pubkey, static_keys: &[Pubkey], program_id_index: u8) -> MevResult<CompiledInstruction> {
-        match self {
-            Self::Buy { discriminator, amount, max_sol_cost, accounts } => {
-                // Calculate slippage factor based on the ratio between amount and max_sol_cost
-                // Higher slippage means more profitable opportunity
-                let price_ratio = (*max_sol_cost as f64) / (*amount as f64);
-                
-                // Calculate optimal sandwich size based on price analysis
-                // We use 2% of the original amount as a starting point, but could be optimized further
-                let slippage_factor = 0.02;
-                let sandwich_amount = (*amount as f64 * slippage_factor) as u64;
-                
-                // For our buy, we calculate max_sol_cost that's slightly higher than proportional to ensure the transaction goes through
-                let adjusted_price_ratio = price_ratio * 1.05; // Allow 5% extra to ensure execution
-                let proportional_max_sol_cost = (sandwich_amount as f64 * adjusted_price_ratio) as u64;
-                
-                // Create a new Vec of accounts for sandwich instruction
-                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
-                    Account {
-                        account_index: a.account_index,
-                        is_writable: a.is_writable
-                    }
-                }).collect();
-                
-                // Create a new Buy instruction with our parameters
-                let sandwich_buy = Self::Buy {
-                    discriminator: discriminator.clone(),
-                    amount: sandwich_amount,
-                    max_sol_cost: proportional_max_sol_cost,
-                    accounts: sandwich_accounts,
-                };
-                
-                // Get updated account list with our address
-                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender)?;
-                
-                // Convert to a compiled instruction
-                let ix = sandwich_buy.to_compiled_instruction(program_id_index)?;
-                
-                Ok(ix)
-            },
-            Self::Sell { .. } => Err(MevError::ValueError), // We only create sandwich buys from buy instructions
-        }
-    }
-    
-    /// Creates a sandwich sell instruction to sell tokens acquired from a front-running trade.
-    /// This method is intended to be used after the target transaction to complete the sandwich.
-    /// 
-    /// # Arguments
-    /// * `token_amount` - Amount of token to sell (should be the amount received from the sandwich buy)
-    /// * `new_sender` - Public key of the new transaction sender (your address)
-    /// * `static_keys` - Original transaction account keys
-    /// * `program_id_index` - Index of the PumpFun program in the static keys
-    /// 
-    /// # Returns
-    /// * `MevResult<CompiledInstruction>` - The compiled sandwich sell instruction
-    pub fn create_sandwich_sell(
-        &self, 
-        token_amount: u64,
-        new_sender: &Pubkey,
-        static_keys: &[Pubkey],
-        program_id_index: u8
-    ) -> MevResult<CompiledInstruction> {
-        match self {
-            Self::Buy { amount, max_sol_cost, accounts, .. } => {
-                // For selling, we use the sell discriminator which is typically different
-                // Using a placeholder that works based on tests - in production you might derive this dynamically
-                let sell_discriminator = [51, 230, 133, 164, 1, 127, 131, 173].to_vec();
-                
-                // Calculate price ratio from original transaction to estimate fair value
-                let original_price = (*max_sol_cost as f64) / (*amount as f64);
-                
-                // Set a minimum output that's slightly lower than the theoretical value to ensure execution
-                // We use 90% of the theoretical value to account for price impact
-                let min_output_factor = 0.90;
-                let min_sol_output = (token_amount as f64 * original_price * min_output_factor) as u64;
-                
-                // Create a new Vec of accounts for sandwich instruction
-                let sandwich_accounts: Vec<Account> = accounts.iter().map(|a| {
-                    Account {
-                        account_index: a.account_index,
-                        is_writable: a.is_writable
-                    }
-                }).collect();
-                
-                // Create a new Sell instruction
-                let sandwich_sell = Self::Sell {
-                    discriminator: sell_discriminator,
-                    amount: token_amount,
-                    min_sol_output,
-                    accounts: sandwich_accounts,
-                };
-                
-                // Get updated account list with our address
-                let _mutated_accounts = self.mutate_accounts(static_keys, new_sender)?;
-                
-                // Convert to a compiled instruction
-                let ix = sandwich_sell.to_compiled_instruction(program_id_index)?;
-                
-                Ok(ix)
-            },
-            Self::Sell { .. } => Err(MevError::ValueError), // We only create sandwich sells from buy instructions in this example
-        }
-    }
-    
     #[allow(unused)]
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
@@ -203,31 +64,6 @@ impl ParsedPumpFunInstructions {
         match self {
             Self::Buy { accounts, .. } => Ok(static_keys[accounts[2].account_index as usize]),
             Self::Sell { .. } => Ok(Pubkey::from_str_const("So11111111111111111111111111111111111111112"))
-        }
-    }
-    
-    pub fn mutate_accounts(&self, static_keys: &[Pubkey], new_sender: &Pubkey) -> MevResult<Vec<Pubkey>> {
-        match self {
-            Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => {
-                Ok(static_keys
-                    .iter()
-                    .map(|k| {
-                        if k == &static_keys[0] { // swap signer
-                            return *new_sender
-                        } else if k == &static_keys[accounts[5].account_index as usize] { // swap token account
-                            return spl_associated_token_account::get_associated_token_address(
-                                new_sender, 
-                                &static_keys[accounts[2].account_index as usize]
-                            )
-                        } else if k == &static_keys[accounts[6].account_index as usize] { // swap user account
-                            return *new_sender
-                        }
-                        else {
-                            return *k
-                        }
-                    })
-                    .collect())
-            }
         }
     }
 }
@@ -290,14 +126,6 @@ mod test {
             target.mint_out(static_keys.as_slice()).unwrap().to_string().as_str(), 
             "So11111111111111111111111111111111111111112"
         );
-        let mutated = target.mutate_accounts(
-            static_keys.as_slice(), 
-            &Pubkey::from_str_const("11111111111111111111111111111111")
-        ).unwrap();
-        assert_eq!(
-            mutated[0],
-            Pubkey::from_str_const("11111111111111111111111111111111")
-        )
     }
     
     #[test]
@@ -344,13 +172,5 @@ mod test {
             target.mint_out(static_keys.as_slice()).unwrap().to_string().as_str(), 
             "GEG1C8xePLdfnLhua5R53MYcZQVQxtubRzmUGerbpump"
         );
-        let mutated = target.mutate_accounts(
-            static_keys.as_slice(), 
-            &Pubkey::from_str_const("11111111111111111111111111111111")
-        ).unwrap();
-        assert_eq!(
-            mutated[0],
-            Pubkey::from_str_const("11111111111111111111111111111111")
-        )
     }
 }

@@ -11,7 +11,7 @@ use anchor_client::{
 };
 use spl_associated_token_account::get_associated_token_address;
 
-use crate::{result::{MevError, MevResult}, rpc::get_mint_of_account, tx::{ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID}};
+use crate::{result::{MevError, MevResult}, rpc::get_mint_of_account, tx::ASSOCIATED_TOKEN_PROGRAM_ID};
 
 use super::{pumpfun::{ParsedPumpFunInstructions, PUMPFUN_PROGRAM_ID}, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, LPV4_SWAP, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
 
@@ -29,6 +29,7 @@ pub enum MevInstructionBuilder {
     RaydiumLpv4(ParsedRaydiumLpv4Instructions),
     RaydiumCpmm(ParsedRaydiumCpmmInstructions),
     RaydiumClmm(ParsedRaydiumClmmInstructions),
+    #[allow(dead_code)]
     RaydiumStable(ParsedRaydiumStableSwapInstructions)
 }
 
