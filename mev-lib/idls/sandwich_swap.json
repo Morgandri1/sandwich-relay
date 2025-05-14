@@ -919,7 +919,7 @@
           "name": "event_authority"
         },
         {
-          "name": "pump_amm_program",
+          "name": "pump_program",
           "docs": [
             "The pump amm program"
           ],

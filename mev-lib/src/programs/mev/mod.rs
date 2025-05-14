@@ -628,7 +628,7 @@ impl MevInstructionBuilder {
                         creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
                         token_program: target_static_accounts[accounts[0].account_index as usize],
                         event_authority: target_static_accounts[accounts[0].account_index as usize],
-                        pump_amm_program: PUMPFUN_PROGRAM_ID,
+                        pump_program: PUMPFUN_PROGRAM_ID,
                         associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
                         sandwich_state: state_account
                     })
@@ -654,7 +654,7 @@ impl MevInstructionBuilder {
                         creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
                         token_program: target_static_accounts[accounts[0].account_index as usize],
                         event_authority: target_static_accounts[accounts[0].account_index as usize],
-                        pump_amm_program: PUMPFUN_PROGRAM_ID,
+                        pump_program: PUMPFUN_PROGRAM_ID,
                         sandwich_state: state_account
                     })
                     .args(args::PumpfunBackrunBuy {
@@ -678,8 +678,8 @@ impl MevInstructionBuilder {
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
             },
-            ParsedPumpFunInstructions::Sell { amount, min_sol_output, accounts, .. } => {
-                unimplemented!()
+            ParsedPumpFunInstructions::Sell { .. } => {
+                Err(MevError::FailedToDeserialize)
             }
         }
     }
