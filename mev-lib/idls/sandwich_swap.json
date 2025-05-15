@@ -1,5 +1,5 @@
 {
-  "address": "inf69quFVZyuHEsrUXq3APtYLr4iqsNiQdCh5ArGcUp",
+  "address": "XArSfgXtRWmxtyUW6dS6tTky1uYwpvaKEEq5eg93w15",
   "metadata": {
     "name": "sandwich_swap",
     "version": "0.1.0",
@@ -188,12 +188,7 @@
           ]
         }
       ],
-      "args": [
-        {
-          "name": "sandwich_id",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
       "name": "pump_backrun_buy",
@@ -672,7 +667,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
@@ -841,7 +841,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
@@ -954,12 +959,7 @@
           }
         }
       ],
-      "args": [
-        {
-          "name": "sandwich_id",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
       "name": "pumpfun_frontrun_buy",
@@ -1171,7 +1171,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
@@ -1310,12 +1315,7 @@
           }
         }
       ],
-      "args": [
-        {
-          "name": "sandwich_id",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
       "name": "raydium_clmm_frontrun_swap",
@@ -1475,7 +1475,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
@@ -1773,12 +1778,7 @@
           }
         }
       ],
-      "args": [
-        {
-          "name": "sandwich_id",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
       "name": "raydium_cpmm_backrun_swap_base_output",
@@ -1949,12 +1949,7 @@
           }
         }
       ],
-      "args": [
-        {
-          "name": "sandwich_id",
-          "type": "string"
-        }
-      ]
+      "args": []
     },
     {
       "name": "raydium_cpmm_frontrun_swap_base_input",
@@ -2140,7 +2135,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
@@ -2328,7 +2328,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     },
@@ -2923,7 +2928,12 @@
         },
         {
           "name": "sandwich_id",
-          "type": "string"
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
         }
       ]
     }
@@ -3085,6 +3095,19 @@
         248,
         59,
         132
+      ]
+    },
+    {
+      "name": "SandwichStartEvent",
+      "discriminator": [
+        173,
+        193,
+        96,
+        137,
+        60,
+        142,
+        124,
+        66
       ]
     }
   ],
@@ -4409,6 +4432,34 @@
       }
     },
     {
+      "name": "SandwichStartEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sandwich_id",
+            "type": "string"
+          },
+          {
+            "name": "profit",
+            "type": "u64"
+          },
+          {
+            "name": "input_amount",
+            "type": "u64"
+          },
+          {
+            "name": "output_amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "SandwichState",
       "type": {
         "kind": "struct",
@@ -4432,7 +4483,12 @@
           },
           {
             "name": "sandwich_id",
-            "type": "string"
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           },
           {
             "name": "is_complete",

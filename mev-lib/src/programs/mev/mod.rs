@@ -34,10 +34,10 @@ pub enum MevInstructionBuilder {
 }
 
 impl MevInstructionBuilder {
-    fn derive_pda(&self) -> MevResult<(Pubkey, String)> {
+    fn derive_pda(&self) -> MevResult<(Pubkey, [u8; 16])> {
         let swap_id: uuid::Uuid = uuid::Uuid::new_v4();
         match Pubkey::try_find_program_address(&[b"sandwich", swap_id.as_bytes()], &MEV_PROGRAM_ID) {
-            Some((key, _)) => Ok((key, swap_id.to_string())),
+            Some((key, _)) => Ok((key, *swap_id.as_bytes())),
             None => Err(MevError::FailedToBuildTx)
         }
     }
@@ -141,7 +141,7 @@ impl MevInstructionBuilder {
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
                         sandwich_state: state_account
                     })
-                    .args(args::RaydiumCpmmBackrunSwapBaseInput { sandwich_id: id })
+                    .args(args::RaydiumCpmmBackrunSwapBaseInput { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 Ok((
@@ -212,7 +212,7 @@ impl MevInstructionBuilder {
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
                         sandwich_state: state_account
                     })
-                    .args(args::RaydiumCpmmBackrunSwapBaseOutput { sandwich_id: id })
+                    .args(args::RaydiumCpmmBackrunSwapBaseOutput { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 Ok((
@@ -306,9 +306,7 @@ impl MevInstructionBuilder {
                         clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
                         sandwich_state: state_account
                     })
-                    .args(args::RaydiumClmmBackrunSwap {
-                        sandwich_id: id
-                    })
+                    .args(args::RaydiumClmmBackrunSwap { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 
@@ -605,9 +603,7 @@ impl MevInstructionBuilder {
                         user_source_owner: signer.pubkey(),
                         amm_program: LPV4_SWAP
                     })
-                    .args(args::BackrunRaydiumAmmSwapBaseIn {
-                        sandwich_id: id
-                    })
+                    .args(args::BackrunRaydiumAmmSwapBaseIn { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                     
@@ -692,9 +688,7 @@ impl MevInstructionBuilder {
                         pump_program: PUMPFUN_PROGRAM_ID,
                         sandwich_state: state_account
                     })
-                    .args(args::PumpfunBackrunBuy {
-                        sandwich_id: id
-                    })
+                    .args(args::PumpfunBackrunBuy { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 
@@ -738,7 +732,7 @@ mod test {
             key_i.iter().map(|i| Account::new(i, false)).collect()
         );
         let builder = MevInstructionBuilder::from_parsed_ix(ParsedInstruction::PumpFun(target)).unwrap();
-        let (pda, id) = builder.derive_pda().unwrap();
+        let (_, id) = builder.derive_pda().unwrap();
         println!("{:?}", id);
     }
 }
