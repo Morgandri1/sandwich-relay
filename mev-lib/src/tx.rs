@@ -81,22 +81,21 @@ mod tests {
             AccountMeta::new(Pubkey::new_unique(), false),  // User token account
             AccountMeta::new(payer.pubkey(), false),  // User account
             AccountMeta::new_readonly(token_program, false),
+            AccountMeta::new_readonly(Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID), false)
         ];
         
         // Simple PumpFun buy instruction data
         // This mimics the format expected by our deserializer
-        let mut instruction_data = vec![102, 6, 61, 18, 1, 218, 235, 234]; // Buy discriminator
-        
-        // Amount (100 tokens)
-        instruction_data.extend_from_slice(&100_000_000u64.to_le_bytes());
-        
-        // Max SOL cost (0.5 SOL)
-        instruction_data.extend_from_slice(&500_000_000u64.to_le_bytes());
+        let sample_ix = [
+            102, 6, 61, 18, 1, 218, 235, 234, 
+            27, 162, 85, 43, 0, 0, 0, 0, 
+            216, 158, 3, 0, 0, 0, 0, 0
+        ].to_vec();
         
         let instruction = Instruction {
             program_id: pump_program,
             accounts,
-            data: instruction_data,
+            data: sample_ix,
         };
         
         // Create a transaction

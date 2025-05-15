@@ -1,11 +1,6 @@
-use std::str::FromStr;
-
-use solana_client::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcTransactionConfig;
 use solana_sdk::{
     hash::Hash, message::{v0::Message, VersionedMessage}, pubkey::Pubkey, signature::{Keypair, Signature}, signer::Signer, system_transaction::transfer, transaction::VersionedTransaction
 };
-use solana_transaction_status::UiTransactionEncoding;
 
 use crate::{comp::is_relevant_tx, programs::raydium::ParsedRaydiumLpv4Instructions};
 
@@ -45,29 +40,4 @@ fn should_not_recognize_transfer() {
         signatures: tx.signatures
     };
     assert!(!is_relevant_tx(&vtx))
-}
-
-#[test]
-fn should_serialize_roundtrip() {
-    
-}
-
-#[test]
-fn should_fetch_and_deserialize_tx() {
-    let hash = "cqZN3FVALhvWdBsdAPPtnfn6Ln1jsMmmg989LQ8cLfLQw8bgVki6ZSsEYtBra8RdNgE4N4iWWGY7ec1Zeo7ErD1";
-    let client = RpcClient::new("https://api.mainnet-beta.solana.com");
-    let sig = Signature::from_str(hash).unwrap();
-    let tx = client.get_transaction_with_config(&sig, RpcTransactionConfig {
-        encoding: Some(UiTransactionEncoding::Binary),
-        commitment: None,
-        max_supported_transaction_version: Some(0u8)
-    }).expect("Failed to fetch transaction");
-    let instruction = tx.transaction.transaction.decode().unwrap();
-    eprintln!("{:?}", &instruction.message.static_account_keys());
-    for ix in instruction.message.instructions() {
-        eprintln!("{:?}", &ix.data);
-        eprintln!("{:?}", &ix.accounts);
-        eprintln!("{:?}", &ix.program_id_index);
-    }
-    panic!()
 }

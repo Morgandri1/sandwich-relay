@@ -36,7 +36,7 @@ pub enum MevInstructionBuilder {
 impl MevInstructionBuilder {
     fn derive_pda(&self) -> MevResult<(Pubkey, String)> {
         let swap_id: uuid::Uuid = uuid::Uuid::new_v4();
-        match Pubkey::try_find_program_address(&[b"sandwich", &swap_id.to_string().as_bytes()], &MEV_PROGRAM_ID) {
+        match Pubkey::try_find_program_address(&[b"sandwich", swap_id.as_bytes()], &MEV_PROGRAM_ID) {
             Some((key, _)) => Ok((key, swap_id.to_string())),
             None => Err(MevError::FailedToBuildTx)
         }
@@ -640,7 +640,7 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedPumpFunInstructions::Buy { amount, max_sol_cost, accounts, .. } => {
-                if accounts.len() < 12 {
+                if accounts.len() < 8 {
                     return Err(MevError::ValueError);
                 }
                 let front = program
@@ -717,5 +717,28 @@ impl MevInstructionBuilder {
                 Err(MevError::FailedToBuildTx)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::programs::{pumpfun::ParsedPumpFunInstructions, Account, ParsedInstruction};
+    use super::MevInstructionBuilder;
+    
+    #[test]
+    fn should_generate_swap_uuid_and_pda() {
+        let sample_ix = [
+            102, 6, 61, 18, 1, 218, 235, 234, 
+            27, 162, 85, 43, 0, 0, 0, 0, 
+            216, 158, 3, 0, 0, 0, 0, 0
+        ].to_vec();
+        let key_i: Vec<u8> = [7, 1, 8, 2, 3, 4, 0, 9, 10, 11, 12, 6].to_vec();
+        let target = ParsedPumpFunInstructions::from_bytes(
+            sample_ix, 
+            key_i.iter().map(|i| Account::new(i, false)).collect()
+        );
+        let builder = MevInstructionBuilder::from_parsed_ix(ParsedInstruction::PumpFun(target)).unwrap();
+        let (pda, id) = builder.derive_pda().unwrap();
+        println!("{:?}", id);
     }
 }
