@@ -21,8 +21,9 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
     println!("Starting build_tx_sandwich with signer: {}", new_signer.pubkey());
     let message = &transaction.message;
     let static_keys = message.static_account_keys();
+    let signature = transaction.signatures.get(0).map_or("no signature".to_string(), |sig| sig.to_string());
     
-    println!("Transaction contains {} instructions", message.instructions().len());
+    println!("Transaction {} contains {} instructions", signature, message.instructions().len());
     
     // Process each instruction to find opportunities for sandwiching
     for (i, ix) in message.instructions().iter().enumerate() {
