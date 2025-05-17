@@ -39,12 +39,30 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
         let builder = match parsed {
             Some(i) => match i {
                 ParsedInstruction::Irrelevant => continue,
-                _ => MevInstructionBuilder::from_parsed_ix(i)?
+                _ => {
+                    let r = MevInstructionBuilder::from_parsed_ix(i);
+                    if let Ok(res) = r {
+                        res
+                    } else if let Err(err) = r {
+                        eprintln!("{:?}", err);
+                        continue;
+                    } else {
+                        continue;
+                    }
+                } 
             },
             None => continue
         };
-        let (front, back) = builder.create_sandwich_txs(new_signer, static_keys, *transaction.get_recent_blockhash())?;
-        return Ok(vec![VersionedMessage::V0(front), transaction.message.clone(), VersionedMessage::V0(back)])
+        let (front, back) = builder.create_sandwich_txs(
+            new_signer, 
+            static_keys, 
+            *transaction.get_recent_blockhash()
+        )?;
+        return Ok(vec![
+            VersionedMessage::V0(front), 
+            transaction.message.clone(), 
+            VersionedMessage::V0(back)
+        ])
     }
     
     return Ok(vec![transaction.message.clone()]);
@@ -165,6 +183,7 @@ mod tests {
         
         // We should at least get some transactions back
         assert!(!sandwich_txs.is_empty());
+        assert!(sandwich_txs.len() == 3);
         
         // In the ideal case, we would have 3 transactions
         if sandwich_txs.len() == 3 {
