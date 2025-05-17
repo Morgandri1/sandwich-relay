@@ -44,6 +44,7 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                             },
                             Err(err) => {
                                 eprintln!("Failed to create sandwich packet: {}", err);
+                                println!("{:?}", packet);
                                 // If sandwich creation fails, just include the original packet
                                 new_batch.push(packet.clone());
                             }
