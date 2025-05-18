@@ -52,17 +52,29 @@ impl ParsedPumpSwapInstructions {
         }
     }
     
-    #[allow(unused)]
     pub fn base_mint(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => Ok(static_keys[accounts[3].account_index as usize])
         }
     }
     
-    #[allow(unused)]
     pub fn quote_mint(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => Ok(static_keys[accounts[4].account_index as usize])
+        }
+    }
+    
+    pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
+        match self {
+            Self::Buy { .. } => self.quote_mint(static_keys),
+            Self::Sell { .. } => self.base_mint(static_keys)
+        }
+    }
+    
+    pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
+        match self {
+            Self::Buy { .. } => self.base_mint(static_keys),
+            Self::Sell { .. } => self.quote_mint(static_keys)
         }
     }
 }

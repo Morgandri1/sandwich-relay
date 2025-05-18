@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use anchor_lang::pubkey;
 use solana_sdk::{
     commitment_config::CommitmentConfig, 
     hash::Hash, 
@@ -76,6 +77,20 @@ impl MevInstructionBuilder {
             Rc::new(signer), 
             CommitmentConfig::confirmed()
         ).program(MEV_PROGRAM_ID).map_err(|_| MevError::UnknownError)
+    }
+    
+    pub fn is_frontrunable(&self, keys: &[Pubkey]) -> bool {
+        let wsol = pubkey!("So11111111111111111111111111111111111111112");
+        let def = pubkey!("11111111111111111111111111111111");
+        let mint_in = match self {
+            Self::PumpFun(ix) => ix.mint_in(keys).unwrap(),
+            Self::PumpSwap(ix) => ix.mint_in(keys).unwrap(),
+            Self::RaydiumClmm(ix) => ix.mint_in(keys).unwrap(),
+            Self::RaydiumCpmm(ix) => ix.mint_in(keys).unwrap(),
+            Self::RaydiumLpv4(ix) => ix.mint_in(keys).unwrap_or(def),
+            _ => def
+        };
+        mint_in == wsol
     }
     
     fn handle_cpmm(

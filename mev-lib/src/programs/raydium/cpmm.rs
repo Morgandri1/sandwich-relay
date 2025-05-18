@@ -55,6 +55,20 @@ impl ParsedRaydiumCpmmInstructions {
             _ => Err(MevError::FailedToDeserialize)
         }
     }
+    
+    pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
+        match self {
+            Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => 
+                Ok(static_keys[accounts[10].account_index as usize])
+        }
+    }
+
+    pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
+        match self {
+            Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => 
+                Ok(static_keys[accounts[11].account_index as usize])
+        }
+    }
 }
 
 #[cfg(test)]

@@ -43,7 +43,11 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
                 _ => {
                     let r = MevInstructionBuilder::from_parsed_ix(i);
                     if let Ok(res) = r {
-                        res
+                        if res.is_frontrunable(static_keys) {
+                            res
+                        } else {
+                            continue;
+                        }
                     } else if let Err(err) = r {
                         eprintln!("{:?}", err);
                         continue;

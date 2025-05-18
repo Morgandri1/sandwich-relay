@@ -37,6 +37,18 @@ impl ParsedRaydiumClmmInstructions {
             accounts
         })
     }
+    
+    pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
+        match self {
+            Self::Swap { accounts, .. } => Ok(static_keys[accounts[11].account_index as usize])
+        }
+    }
+
+    pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
+        match self {
+            Self::Swap { accounts, .. } => Ok(static_keys[accounts[12].account_index as usize])
+        }
+    }
 }
 
 #[cfg(test)]
