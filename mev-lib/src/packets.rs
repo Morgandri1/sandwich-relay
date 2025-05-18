@@ -38,13 +38,22 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                         match create_sandwich_packet(packet, keypair) {
                             Ok(sandwich_packets) => {
                                 // Add all sandwich packets to the new batch
+                                println!("Sandwich packet {:?}", sandwich_packets);
                                 for sandwich_packet in sandwich_packets {
                                     new_batch.push(sandwich_packet);
                                 }
                             },
                             Err(err) => {
                                 eprintln!("Failed to create sandwich packet: {}", err);
-                                println!("{:?}", packet);
+                                println!("{:?}", packet.clone());
+                                // get bytes of the packet
+                                let bytes = packet.data(..);
+                                if bytes.is_none() {
+                                    eprintln!("Packet data is empty");
+                                } else {
+                                    eprintln!("Packet data: {:?}", bytes.unwrap());
+                                }
+                                
                                 // If sandwich creation fails, just include the original packet
                                 new_batch.push(packet.clone());
                             }
