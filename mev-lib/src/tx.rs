@@ -46,6 +46,7 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
                         if res.is_frontrunable(static_keys) {
                             res
                         } else {
+                            eprintln!("Couldn't make frontrun tx from swap");
                             continue;
                         }
                     } else if let Err(err) = r {
