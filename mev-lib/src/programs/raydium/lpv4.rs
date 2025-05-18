@@ -99,6 +99,7 @@ impl ParsedRaydiumLpv4Instructions {
         }
     }
     
+    #[allow(unused)]
     pub fn mint_out(&self, keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Swap { accounts, .. } => get_mint_of_account(&keys[accounts[16].account_index as usize])

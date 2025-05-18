@@ -71,6 +71,7 @@ impl ParsedPumpSwapInstructions {
         }
     }
     
+    #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::Buy { .. } => self.base_mint(static_keys),

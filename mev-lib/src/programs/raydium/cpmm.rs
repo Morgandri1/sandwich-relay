@@ -63,6 +63,7 @@ impl ParsedRaydiumCpmmInstructions {
         }
     }
 
+    #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => 
