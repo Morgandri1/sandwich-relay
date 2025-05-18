@@ -39,7 +39,7 @@ impl MevInstructionBuilder {
         let swap_id: uuid::Uuid = uuid::Uuid::new_v4();
         match Pubkey::try_find_program_address(&[b"sandwich", swap_id.as_bytes()], &MEV_PROGRAM_ID) {
             Some((key, _)) => Ok((key, *swap_id.as_bytes())),
-            None => Err(MevError::FailedToBuildTx)
+            None => Err(MevError::ValueError)
         }
     }
     
