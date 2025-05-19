@@ -129,7 +129,7 @@ fn create_sandwich_packet(
             return Err(MevError::ConversionWouldOverflow)
         } else {
             let mut new = [0u8; 1232];
-            new[..serialized_tx.len()-1].copy_from_slice(serialized_tx.as_slice());
+            new[..serialized_tx.len()].copy_from_slice(serialized_tx.as_slice());
             let mut meta = original_packet.meta().clone();
             meta.size = serialized_tx.len();
             
