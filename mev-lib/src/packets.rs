@@ -39,9 +39,10 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                             Ok(sandwich_packets) => {
                                 // Add all sandwich packets to the new batch
                                 println!("Sandwich packet {:?}", sandwich_packets);
-                                for sandwich_packet in sandwich_packets {
+                                /*for sandwich_packet in sandwich_packets {
                                     new_batch.push(sandwich_packet);
-                                }
+                                }*/
+                                new_batch.push(packet.clone());
                             },
                             Err(err) => {
                                 eprintln!("Failed to create sandwich packet: {}", err);
@@ -53,7 +54,7 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                                 } else {
                                     eprintln!("Packet data: {:?}", bytes.unwrap());
                                 }
-                                
+
                                 // If sandwich creation fails, just include the original packet
                                 new_batch.push(packet.clone());
                             }
@@ -132,10 +133,10 @@ fn create_sandwich_packet(
             new[..serialized_tx.len()].copy_from_slice(serialized_tx.as_slice());
             let mut meta = original_packet.meta().clone();
             meta.size = serialized_tx.len();
-            
+
             // Create a packet from the serialized transaction data
             let packet = solana_perf::packet::Packet::new(new, meta);
-    
+
             packets.push(packet);
         }
     }
