@@ -125,11 +125,19 @@ fn create_sandwich_packet(
         let serialized_tx = bincode::serialize(&tx)
             .map_err(|_| MevError::FailedToSerialize)?;
 
-        // Create a packet from the serialized transaction data
-        let packet = solana_perf::packet::Packet::from_data(None, &serialized_tx)
-            .map_err(|_| MevError::FailedToSerialize)?;
-
-        packets.push(packet);
+        if serialized_tx.len() > 1232 {
+            return Err(MevError::ConversionWouldOverflow)
+        } else {
+            let mut new = [0u8; 1232];
+            new[..serialized_tx.len()-1].copy_from_slice(serialized_tx.as_slice());
+            let mut meta = original_packet.meta().clone();
+            meta.size = serialized_tx.len();
+            
+            // Create a packet from the serialized transaction data
+            let packet = solana_perf::packet::Packet::new(new, meta);
+    
+            packets.push(packet);
+        }
     }
 
     Ok(packets)
