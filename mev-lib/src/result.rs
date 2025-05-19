@@ -11,6 +11,7 @@ pub enum MevError {
     FailedToBuildTx,
     UnknownError,
     IncorrectProgram,
+    AccountsError
 }
 
 impl fmt::Display for MevError {
@@ -22,7 +23,8 @@ impl fmt::Display for MevError {
             Self::ValueError => write!(f, "Value Error"),
             Self::FailedToBuildTx => write!(f, "Failed to build transaction"),
             Self::UnknownError => write!(f, "an Unknown Error occured"),
-            Self::IncorrectProgram => write!(f, "Passed incorrect program to deserializer")
+            Self::IncorrectProgram => write!(f, "Passed incorrect program to deserializer"),
+            Self::AccountsError => write!(f, "invalid or incorrect accounts were passed to the program")
         }
     }    
 }

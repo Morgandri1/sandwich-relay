@@ -54,13 +54,23 @@ impl ParsedPumpSwapInstructions {
     
     pub fn base_mint(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => Ok(static_keys[accounts[3].account_index as usize])
+            Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => {
+                if accounts.len() < 4 || static_keys.len() < accounts[3].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
+                Ok(static_keys[accounts[3].account_index as usize])
+            }
         }
     }
     
     pub fn quote_mint(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => Ok(static_keys[accounts[4].account_index as usize])
+            Self::Buy { accounts, .. } | Self::Sell { accounts, .. } => {
+                if accounts.len() < 5 || static_keys.len() < accounts[4].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
+                Ok(static_keys[accounts[4].account_index as usize])
+            }
         }
     }
     

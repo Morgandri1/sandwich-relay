@@ -58,16 +58,24 @@ impl ParsedRaydiumCpmmInstructions {
     
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => 
+            Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => {
+                if accounts.len() < 11 || static_keys.len() < accounts[10].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
                 Ok(static_keys[accounts[10].account_index as usize])
+            }
         }
     }
 
     #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => 
+            Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } =>{
+                if accounts.len() < 12 || static_keys.len() < accounts[11].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
                 Ok(static_keys[accounts[11].account_index as usize])
+            }
         }
     }
 }

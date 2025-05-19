@@ -1,6 +1,6 @@
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{programs::Account, result::MevResult};
+use crate::{programs::Account, result::{MevError, MevResult}};
 
 pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey = Pubkey::from_str_const("CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK");
 
@@ -40,14 +40,24 @@ impl ParsedRaydiumClmmInstructions {
     
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::Swap { accounts, .. } => Ok(static_keys[accounts[11].account_index as usize])
+            Self::Swap { accounts, .. } => {
+                if accounts.len() < 12 || static_keys.len() < accounts[11].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
+                Ok(static_keys[accounts[11].account_index as usize])
+            }
         }
     }
 
     #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::Swap { accounts, .. } => Ok(static_keys[accounts[12].account_index as usize])
+            Self::Swap { accounts, .. } => {
+                if accounts.len() < 13 || static_keys.len() < accounts[12].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
+                Ok(static_keys[accounts[12].account_index as usize])
+            }
         }
     }
 }

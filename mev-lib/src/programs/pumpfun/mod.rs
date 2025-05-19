@@ -53,7 +53,12 @@ impl ParsedPumpFunInstructions {
     
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::Sell { accounts, .. } => Ok(static_keys[accounts[2].account_index as usize]),
+            Self::Sell { accounts, .. } => {
+                if accounts.len() < 3 || static_keys.len() < accounts[2].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
+                Ok(static_keys[accounts[2].account_index as usize])
+            },
             Self::Buy { .. } => Ok(Pubkey::from_str_const("So11111111111111111111111111111111111111112"))
         }
     }
@@ -61,7 +66,12 @@ impl ParsedPumpFunInstructions {
     #[allow(unused)]
     pub fn mint_out(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
-            Self::Buy { accounts, .. } => Ok(static_keys[accounts[2].account_index as usize]),
+            Self::Buy { accounts, .. } => {
+                if accounts.len() < 3 || static_keys.len() < accounts[2].account_index as usize {
+                    return Err(MevError::AccountsError)
+                }
+                Ok(static_keys[accounts[2].account_index as usize])
+            },
             Self::Sell { .. } => Ok(Pubkey::from_str_const("So11111111111111111111111111111111111111112"))
         }
     }
