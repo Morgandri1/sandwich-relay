@@ -1,5 +1,8 @@
+use serde_json::json;
+use solana_client::rpc_client::SerializableTransaction;
 use solana_core::banking_trace::BankingPacketBatch;
 use solana_perf::packet::PacketBatch;
+use solana_sdk::system_transaction::transfer;
 use std::sync::Arc;
 use bincode;
 use solana_sdk::{
@@ -8,9 +11,11 @@ use solana_sdk::{
     signer::Signer
 };
 use crate::contains_jito_tip;
+use crate::jito::JITO_TIP_ADDRESSES;
 use crate::result::{MevResult, MevError};
 use crate::comp::is_relevant_tx;
 use crate::tx::build_tx_sandwich;
+use base64::{Engine as _, engine::general_purpose};
 
 /// Process a batch of packets and add 'sandwich' transactions around relevant swap operations
 /// # Arguments
@@ -113,7 +118,15 @@ fn create_sandwich_packet(
 
     // Create packets from the transactions
     let mut packets = Vec::with_capacity(sandwich_txs.len());
-
+    let mut jito_txs = vec![
+        VersionedTransaction::from(transfer(
+            &keypair, 
+            &JITO_TIP_ADDRESSES[0], 
+            10000000, 
+            *original_tx.get_recent_blockhash()
+        ))
+    ];
+    
     // Process and sign each sandwich transaction
     for tx in sandwich_txs.iter_mut() {
         // Sign the transaction if it's our transaction (not the original)
@@ -121,6 +134,8 @@ fn create_sandwich_packet(
             let signature = keypair.sign_message(&tx.message.serialize());
             tx.signatures = vec![signature];
         }
+        
+        jito_txs.push(tx.clone());
 
         // Serialize the transaction
         let serialized_tx = bincode::serialize(&tx)
@@ -140,7 +155,33 @@ fn create_sandwich_packet(
             packets.push(packet);
         }
     }
-
+    
+    let rt = tokio::runtime::Runtime::new().map_err(|_| MevError::UnknownError)?;
+    
+    let b64_tx: Vec<String> = jito_txs
+        .iter()
+        .map(|tx| general_purpose::STANDARD.encode(
+            bincode::serialize(tx).unwrap()
+        ))
+        .collect();
+    
+    let params = json!([
+        b64_tx,
+        {
+            "encoding": "base64"
+        }
+    ]);
+    
+    let res = rt.block_on(async move {
+        let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://mainnet.block-engine.jito.wtf/api/v1", None);
+        c.send_bundle(Some(params), None).await
+    }).map_err(|_| MevError::UnknownError)?;
+    
+    let bundle_uuid = res["result"]
+        .as_str()
+        .ok_or_else(|| MevError::ValueError)?;
+    println!("Bundle sent with UUID: {}", bundle_uuid);
+    
     Ok(packets)
 }
 
