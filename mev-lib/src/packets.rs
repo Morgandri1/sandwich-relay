@@ -182,7 +182,14 @@ fn create_sandwich_packet(
         c.send_bundle(Some(params), None).await
     }).map_err(|_| MevError::UnknownError)?;
     
-    println!("Response: {:?} {:?}", res, b64_tx.iter().map(|x| x.1)).collect::<Vec<_>>().join(", "));
+    println!(
+        "Response: {:?} {:?}",
+        res,
+        b64_tx
+            .iter()
+            .map(|x| x.1)
+            .collect::<Vec<String>>().join(", ")
+    );
 
     let bundle_uuid = res["result"]
         .as_str()
