@@ -651,7 +651,7 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedPumpFunInstructions::Buy { amount, max_sol_cost, accounts, .. } => {
-                if accounts.len() < 8 {
+                if accounts.len() < 9 {
                     return Err(MevError::ValueError);
                 }
                 let front = program

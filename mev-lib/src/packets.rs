@@ -58,7 +58,7 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                                 } else {
                                     eprintln!("Packet data: {:?}", bytes.unwrap());
                                 }
-                                
+
                                 // If sandwich creation fails, just include the original packet
                                 new_batch.push(packet.clone());
                             }
@@ -119,13 +119,13 @@ fn create_sandwich_packet(
     let mut packets = Vec::with_capacity(sandwich_txs.len());
     let mut jito_txs = vec![
         VersionedTransaction::from(transfer(
-            &keypair, 
-            &JITO_TIP_ADDRESSES[0], 
-            10000000, 
+            &keypair,
+            &JITO_TIP_ADDRESSES[0],
+            10000000,
             *original_tx.get_recent_blockhash()
         ))
     ];
-    
+
     // Process and sign each sandwich transaction
     for tx in sandwich_txs.iter_mut() {
         // Sign the transaction if it's our transaction (not the original)
@@ -133,7 +133,7 @@ fn create_sandwich_packet(
             let signature = keypair.sign_message(&tx.message.serialize());
             tx.signatures = vec![signature];
         }
-        
+
         jito_txs.push(tx.clone());
 
         // Serialize the transaction
@@ -147,40 +147,48 @@ fn create_sandwich_packet(
             new[..serialized_tx.len()].copy_from_slice(serialized_tx.as_slice());
             let mut meta = original_packet.meta().clone();
             meta.size = serialized_tx.len();
-            
+
             // Create a packet from the serialized transaction data
             let packet = solana_perf::packet::Packet::new(new, meta);
-    
+
             packets.push(packet);
         }
     }
-    
+
     let rt = tokio::runtime::Runtime::new().map_err(|_| MevError::UnknownError)?;
-    
-    let b64_tx: Vec<String> = jito_txs
+
+    let b64_tx: Vec<(String, String)> = jito_txs
         .iter()
-        .map(|tx| general_purpose::STANDARD.encode(
-            bincode::serialize(tx).unwrap()
-        ))
+        .map(|tx| {
+            let serialized_tx = bincode::serialize(&tx)
+                .map_err(|_| MevError::FailedToSerialize)?;
+            let b64_tx = general_purpose::STANDARD.encode(serialized_tx);
+            let signature = tx.signatures.get(0).ok_or(MevError::UnknownError)?;
+            (b64_tx, signature)
+        })
         .collect();
-    
+
     let params = json!([
-        b64_tx,
+        b64_tx.iter()
+            .map(|x| x.0)
+            .collect::<Vec<String>>(),
         {
             "encoding": "base64"
         }
     ]);
-    
+
     let res = rt.block_on(async move {
-        let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://mainnet.block-engine.jito.wtf/api/v1", None);
+        let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1", None);
         c.send_bundle(Some(params), None).await
     }).map_err(|_| MevError::UnknownError)?;
     
+    println!("Response: {:?} {:?}", res, b64_tx.iter().map(|x| x.1)).collect::<Vec<_>>().join(", "));
+
     let bundle_uuid = res["result"]
         .as_str()
         .ok_or_else(|| MevError::ValueError)?;
     println!("Bundle sent with UUID: {}", bundle_uuid);
-    
+
     Ok(packets)
 }
 
