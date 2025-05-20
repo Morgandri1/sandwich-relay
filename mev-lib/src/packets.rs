@@ -161,16 +161,19 @@ fn create_sandwich_packet(
         .iter()
         .map(|tx| {
             let serialized_tx = bincode::serialize(&tx)
-                .map_err(|_| MevError::FailedToSerialize)?;
+                .unwrap();
             let b64_tx = general_purpose::STANDARD.encode(serialized_tx);
-            let signature = tx.signatures.get(0).ok_or(MevError::UnknownError)?;
+            let signature = tx.signatures.get(0)
+                .ok_or_else(|| MevError::ValueError)
+                .unwrap()
+                .to_string();
             (b64_tx, signature)
         })
         .collect();
 
     let params = json!([
         b64_tx.iter()
-            .map(|x| x.0)
+            .map(|x| x.0.clone())
             .collect::<Vec<String>>(),
         {
             "encoding": "base64"
@@ -181,13 +184,13 @@ fn create_sandwich_packet(
         let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1", None);
         c.send_bundle(Some(params), None).await
     }).map_err(|_| MevError::UnknownError)?;
-    
+
     println!(
         "Response: {:?} {:?}",
         res,
         b64_tx
             .iter()
-            .map(|x| x.1)
+            .map(|x| x.1.clone())
             .collect::<Vec<String>>().join(", ")
     );
 
@@ -326,7 +329,7 @@ mod tests {
         // If sandwich creation worked, we should have more packets than we started with
         if packet_batches[0].len() > original_packet_count {
             println!("Successfully created sandwich transactions! Original: {}, New: {}",
-                original_packet_count, packet_batches[0].len());
+                     original_packet_count, packet_batches[0].len());
         } else {
             println!("Packets were processed but no sandwiches were created");
         }
