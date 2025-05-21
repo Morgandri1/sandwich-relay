@@ -26,5 +26,5 @@ impl fmt::Display for MevError {
             Self::IncorrectProgram => write!(f, "Passed incorrect program to deserializer"),
             Self::AccountsError => write!(f, "invalid or incorrect accounts were passed to the program")
         }
-    }    
+    }
 }

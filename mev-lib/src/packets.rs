@@ -10,7 +10,7 @@ use solana_sdk::{
     signature::Keypair,
     signer::Signer
 };
-use crate::contains_jito_tip;
+use crate::{contains_jito_tip, jito};
 use crate::jito::JITO_TIP_ADDRESSES;
 use crate::result::{MevResult, MevError};
 use crate::comp::is_relevant_tx;
@@ -175,10 +175,29 @@ fn create_sandwich_packet(
         }
     ]);
 
+    if let Err(e) = send_to_jito(
+        &rt,
+        params,
+        &b64_tx
+    ) {
+        eprintln!("Failed to send to Jito: {}", e);
+    }
+
+    Ok(packets)
+}
+
+fn send_to_jito(
+    rt: &tokio::runtime::Runtime,
+    params: serde_json::Value,
+    b64_tx: &Vec<(String, String)>,
+) -> MevResult<String> {
     let res = rt.block_on(async move {
         let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1", None);
         c.send_bundle(Some(params), None).await
-    }).map_err(|_| MevError::UnknownError)?;
+    }).map_err(|err| {
+        eprintln!("Error sending to Jito: {}", err);
+        MevError::UnknownError
+    })?;
 
     println!(
         "Response: {:?} {:?}",
@@ -189,12 +208,12 @@ fn create_sandwich_packet(
             .collect::<Vec<String>>().join(", ")
     );
 
-    let bundle_uuid = res["result"]
+    let id = res["result"]
         .as_str()
-        .ok_or_else(|| MevError::ValueError)?;
-    println!("Bundle sent with UUID: {}", bundle_uuid);
+        .ok_or_else(|| MevError::ValueError)?
+        .to_string();
 
-    Ok(packets)
+    Ok(id)
 }
 
 #[cfg(test)]
