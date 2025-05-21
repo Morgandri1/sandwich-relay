@@ -37,27 +37,22 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
             // Try to deserialize the packet into a transaction
             match packet.deserialize_slice::<VersionedTransaction, _>(..) {
                 Ok(vtx) => {
+                    let signature = vtx.signatures.get(0).map_or("no signature".to_string(), |sig| sig.to_string());
+
+                    println!("Processing Transaction {} {:?}", signature, vtx);
                     // Check if this transaction is relevant for sandwiching
                     if is_relevant_tx(&vtx) && !contains_jito_tip(&vtx) {
                         // Create sandwich packets around the original transaction using our keypair
                         match create_sandwich_packet(packet, keypair) {
                             Ok(sandwich_packets) => {
                                 // Add all sandwich packets to the new batch
-                                println!("Sandwich packet {:?}", sandwich_packets);
+                                println!("Sandwich packet {}", sandwich_packets.len());
                                 for sandwich_packet in sandwich_packets {
                                     new_batch.push(sandwich_packet);
                                 }
                             },
                             Err(err) => {
                                 eprintln!("Failed to create sandwich packet: {}", err);
-                                println!("{:?}", packet.clone());
-                                // get bytes of the packet
-                                let bytes = packet.data(..);
-                                if bytes.is_none() {
-                                    eprintln!("Packet data is empty");
-                                } else {
-                                    eprintln!("Packet data: {:?}", bytes.unwrap());
-                                }
 
                                 // If sandwich creation fails, just include the original packet
                                 new_batch.push(packet.clone());
@@ -329,7 +324,7 @@ mod tests {
         // If sandwich creation worked, we should have more packets than we started with
         if packet_batches[0].len() > original_packet_count {
             println!("Successfully created sandwich transactions! Original: {}, New: {}",
-                     original_packet_count, packet_batches[0].len());
+                original_packet_count, packet_batches[0].len());
         } else {
             println!("Packets were processed but no sandwiches were created");
         }

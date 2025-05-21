@@ -83,14 +83,19 @@ impl MevInstructionBuilder {
         let wsol = pubkey!("So11111111111111111111111111111111111111112");
         let def = pubkey!("11111111111111111111111111111111");
         let mint_in = match self {
-            Self::PumpFun(ix) => ix.mint_in(keys).unwrap(),
-            Self::PumpSwap(ix) => ix.mint_in(keys).unwrap(),
-            Self::RaydiumClmm(ix) => ix.mint_in(keys).unwrap(),
-            Self::RaydiumCpmm(ix) => ix.mint_in(keys).unwrap(),
-            Self::RaydiumLpv4(ix) => ix.mint_in(keys).unwrap_or(def),
-            _ => def
+            Self::PumpFun(ix) => ix.mint_in(keys),
+            Self::PumpSwap(ix) => ix.mint_in(keys),
+            Self::RaydiumClmm(ix) => ix.mint_in(keys),
+            Self::RaydiumCpmm(ix) => ix.mint_in(keys),
+            Self::RaydiumLpv4(ix) => ix.mint_in(keys),
+            _ => Ok(def)
         };
-        mint_in == wsol
+        if let Err(err) = mint_in {
+            eprintln!("Error while checking if frontrunable: {:?}", err);
+            return false;
+        }
+        
+        mint_in.unwrap() == wsol
     }
     
     fn handle_cpmm(

@@ -59,7 +59,7 @@ impl ParsedRaydiumCpmmInstructions {
     pub fn mint_in(&self, static_keys: &[Pubkey]) -> MevResult<Pubkey> {
         match self {
             Self::SwapIn { accounts, .. } | Self::SwapOut { accounts, .. } => {
-                if accounts.len() < 11 || static_keys.len() < accounts[10].account_index as usize {
+                if accounts.len() < 11 || static_keys.len() <= accounts[10].account_index as usize {
                     return Err(MevError::AccountsError)
                 }
                 Ok(static_keys[accounts[10].account_index as usize])
