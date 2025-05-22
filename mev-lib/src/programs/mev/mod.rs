@@ -14,7 +14,7 @@ use spl_associated_token_account::get_associated_token_address;
 
 use crate::{result::{MevError, MevResult}, rpc::get_mint_of_account, tx::ASSOCIATED_TOKEN_PROGRAM_ID};
 
-use super::{pumpfun::{ParsedPumpFunInstructions, PUMPFUN_PROGRAM_ID}, pumpswap::ParsedPumpSwapInstructions, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, LPV4_SWAP, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
+use super::{pumpfun::{ParsedPumpFunInstructions, PUMPFUN_PROGRAM_ID}, pumpswap::{ParsedPumpSwapInstructions, PUMPSWAP_PROGRAM_ID}, raydium::{ParsedRaydiumClmmInstructions, ParsedRaydiumCpmmInstructions, ParsedRaydiumLpv4Instructions, ParsedRaydiumStableSwapInstructions, LPV4_SWAP, RAYDIUM_CLMM_PROGRAM_ID, RAYDIUM_CPMM_PROGRAM_ID}, ParsedInstruction};
 
 pub const MEV_PROGRAM_ID: Pubkey = Pubkey::from_str_const("inf69quFVZyuHEsrUXq3APtYLr4iqsNiQdCh5ArGcUp");
 
@@ -23,6 +23,12 @@ use sandwich_swap::{
     client::accounts,
     client::args
 };
+
+const SYSTEM_PROGRAM: Pubkey = Pubkey::from_str_const("11111111111111111111111111111111");
+const ASSOCIATED_TOKEN_PROGRAM: Pubkey = Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID);
+const MEMO_PROGRAM: Pubkey = Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+const TOKEN_PROGRAM: Pubkey = Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const TOKEN22_PROGRAM: Pubkey =  Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
 pub enum MevInstructionBuilder {
     PumpFun(ParsedPumpFunInstructions),
@@ -81,7 +87,7 @@ impl MevInstructionBuilder {
     
     pub fn is_frontrunable(&self, keys: &[Pubkey]) -> bool {
         let wsol = pubkey!("So11111111111111111111111111111111111111112");
-        let def = pubkey!("11111111111111111111111111111111");
+        let def = pubkey!("0000000000000000000000000000000");
         let mint_in = match self {
             Self::PumpFun(ix) => ix.mint_in(keys),
             Self::PumpSwap(ix) => ix.mint_in(keys),
@@ -132,7 +138,7 @@ impl MevInstructionBuilder {
                         input_token_mint: target_static_accounts[accounts[10].account_index as usize],
                         output_token_mint: target_static_accounts[accounts[11].account_index as usize],
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        system_program: SYSTEM_PROGRAM,
                         sandwich_state: state_account
                     })
                     .args(args::RaydiumCpmmFrontrunSwapBaseInput {
@@ -203,7 +209,7 @@ impl MevInstructionBuilder {
                         input_token_mint: target_static_accounts[accounts[10].account_index as usize],
                         output_token_mint: target_static_accounts[accounts[11].account_index as usize],
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        system_program: SYSTEM_PROGRAM,
                         sandwich_state: state_account
                     })
                     .args(args::RaydiumCpmmFrontrunSwapBaseOutput {
@@ -288,13 +294,13 @@ impl MevInstructionBuilder {
                         input_vault: target_static_accounts[accounts[5].account_index as usize],
                         output_vault: target_static_accounts[accounts[6].account_index as usize],
                         observation_state: target_static_accounts[accounts[7].account_index as usize],
-                        token_program: Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-                        token_program_2022: Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"),
-                        memo_program: Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                        token_program: TOKEN_PROGRAM,
+                        token_program_2022: TOKEN22_PROGRAM,
+                        memo_program: MEMO_PROGRAM,
                         input_vault_mint: target_static_accounts[accounts[11].account_index as usize],
                         output_vault_mint: target_static_accounts[accounts[12].account_index as usize],
                         clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
-                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        system_program: SYSTEM_PROGRAM,
                         sandwich_state: state_account
                     })
                     .args(args::RaydiumClmmFrontrunSwap {
@@ -318,9 +324,9 @@ impl MevInstructionBuilder {
                         input_vault: target_static_accounts[accounts[6].account_index as usize],
                         output_vault: target_static_accounts[accounts[5].account_index as usize],
                         observation_state: target_static_accounts[accounts[7].account_index as usize],
-                        token_program: Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),
-                        token_program_2022: Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"),
-                        memo_program: Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+                        token_program: TOKEN_PROGRAM,
+                        token_program_2022: TOKEN22_PROGRAM,
+                        memo_program: MEMO_PROGRAM,
                         input_vault_mint: target_static_accounts[accounts[12].account_index as usize],
                         output_vault_mint: target_static_accounts[accounts[11].account_index as usize],
                         clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
@@ -382,11 +388,11 @@ impl MevInstructionBuilder {
                         protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
                         base_token_program: target_static_accounts[accounts[11].account_index as usize],
                         quote_token_program: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: target_static_accounts[accounts[13].account_index as usize],
-                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        system_program: SYSTEM_PROGRAM,
+                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
-                        program: target_static_accounts[accounts[16].account_index as usize],
+                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
+                        program: PUMPSWAP_PROGRAM_ID,
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
                         sandwich_state: state_account
@@ -415,11 +421,11 @@ impl MevInstructionBuilder {
                         protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
                         base_token_program: target_static_accounts[accounts[11].account_index as usize],
                         quote_token_program: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: target_static_accounts[accounts[13].account_index as usize],
-                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        system_program: SYSTEM_PROGRAM,
+                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
-                        program: target_static_accounts[accounts[16].account_index as usize],
+                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
+                        program: PUMPSWAP_PROGRAM_ID,
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
                         sandwich_state: state_account
@@ -468,11 +474,11 @@ impl MevInstructionBuilder {
                         protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
                         base_token_program: target_static_accounts[accounts[11].account_index as usize],
                         quote_token_program: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: target_static_accounts[accounts[13].account_index as usize],
-                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        system_program: SYSTEM_PROGRAM,
+                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
-                        program: target_static_accounts[accounts[16].account_index as usize],
+                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
+                        program: PUMPSWAP_PROGRAM_ID,
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
                         sandwich_state: state_account
@@ -501,11 +507,11 @@ impl MevInstructionBuilder {
                         protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
                         base_token_program: target_static_accounts[accounts[11].account_index as usize],
                         quote_token_program: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: target_static_accounts[accounts[13].account_index as usize],
-                        associated_token_program: target_static_accounts[accounts[14].account_index as usize],
+                        system_program: SYSTEM_PROGRAM,
+                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: target_static_accounts[accounts[16].account_index as usize], // are these different?
-                        program: target_static_accounts[accounts[16].account_index as usize],
+                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
+                        program: PUMPSWAP_PROGRAM_ID,
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
                         sandwich_state: state_account
@@ -555,7 +561,7 @@ impl MevInstructionBuilder {
                 let front = program
                     .request()
                     .accounts(accounts::RaydiumFrontrunAmmSwapBaseIn {
-                        token_program: target_static_accounts[accounts[0].account_index as usize],
+                        token_program: TOKEN_PROGRAM,
                         amm: target_static_accounts[accounts[1].account_index as usize],
                         amm_authority: target_static_accounts[accounts[2].account_index as usize],
                         amm_open_orders: target_static_accounts[accounts[3].account_index as usize],
@@ -581,8 +587,8 @@ impl MevInstructionBuilder {
                         base_mint: mint_in,
                         sandwich_state: state_account,
                         user_source_owner: signer.pubkey(),
-                        associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
-                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
+                        system_program: SYSTEM_PROGRAM,
                         amm_program: LPV4_SWAP
                     })
                     .args(args::RaydiumFrontrunAmmSwapBaseIn {
@@ -672,12 +678,12 @@ impl MevInstructionBuilder {
                             &target_static_accounts[accounts[2].account_index as usize]
                         ),
                         user: signer.pubkey(),
-                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        system_program: SYSTEM_PROGRAM,
                         creator_fee_vault: target_static_accounts[accounts[7].account_index as usize],
-                        token_program: target_static_accounts[accounts[8].account_index as usize],
+                        token_program: TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[9].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
-                        associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
+                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         sandwich_state: state_account
                     })
                     .args(args::PumpfunFrontrunBuy {
@@ -701,9 +707,9 @@ impl MevInstructionBuilder {
                             &target_static_accounts[accounts[2].account_index as usize]
                         ),
                         user: signer.pubkey(),
-                        system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
+                        system_program: SYSTEM_PROGRAM,
                         creator_fee_vault: target_static_accounts[accounts[7].account_index as usize],
-                        token_program: target_static_accounts[accounts[8].account_index as usize],
+                        token_program: TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[9].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
                         sandwich_state: state_account
