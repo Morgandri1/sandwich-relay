@@ -175,13 +175,13 @@ fn create_sandwich_packet(
         }
     ]);
 
-    if let Err(e) = send_to_jito(
+    /*if let Err(e) = send_to_jito(
         &rt,
         params,
         &b64_tx
     ) {
         eprintln!("Failed to send to Jito: {}", e);
-    }
+    }*/
 
     Ok(packets)
 }

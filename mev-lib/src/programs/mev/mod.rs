@@ -673,9 +673,9 @@ impl MevInstructionBuilder {
                         ),
                         user: signer.pubkey(),
                         system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
-                        creator_fee_vault: target_static_accounts[accounts[6].account_index as usize],
-                        token_program: target_static_accounts[accounts[7].account_index as usize],
-                        event_authority: target_static_accounts[accounts[8].account_index as usize],
+                        creator_fee_vault: target_static_accounts[accounts[7].account_index as usize],
+                        token_program: target_static_accounts[accounts[8].account_index as usize],
+                        event_authority: target_static_accounts[accounts[9].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
                         associated_token_program: Pubkey::from_str_const(ASSOCIATED_TOKEN_PROGRAM_ID),
                         sandwich_state: state_account
@@ -692,23 +692,23 @@ impl MevInstructionBuilder {
                     .request()
                     .accounts(accounts::PumpfunBackrunBuy {
                         global: target_static_accounts[accounts[0].account_index as usize],
-                        protocol_fee_recipient: target_static_accounts[accounts[0].account_index as usize],
-                        mint: target_static_accounts[accounts[0].account_index as usize],
-                        bonding_curve: target_static_accounts[accounts[0].account_index as usize],
-                        bonding_curve_ata: target_static_accounts[accounts[0].account_index as usize],
+                        protocol_fee_recipient: target_static_accounts[accounts[1].account_index as usize],
+                        mint: target_static_accounts[accounts[2].account_index as usize],
+                        bonding_curve: target_static_accounts[accounts[3].account_index as usize],
+                        bonding_curve_ata: target_static_accounts[accounts[4].account_index as usize],
                         user_ata: get_associated_token_address(
                             &signer.pubkey(), 
                             &target_static_accounts[accounts[2].account_index as usize]
                         ),
                         user: signer.pubkey(),
                         system_program: Pubkey::from_str_const("11111111111111111111111111111111"),
-                        creator_fee_vault: target_static_accounts[accounts[0].account_index as usize],
-                        token_program: target_static_accounts[accounts[0].account_index as usize],
-                        event_authority: target_static_accounts[accounts[0].account_index as usize],
+                        creator_fee_vault: target_static_accounts[accounts[7].account_index as usize],
+                        token_program: target_static_accounts[accounts[8].account_index as usize],
+                        event_authority: target_static_accounts[accounts[9].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
                         sandwich_state: state_account
                     })
-                    .args(args::PumpfunBackrunBuy { })
+                    .args(args::PumpfunBackrunBuy {})
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 
