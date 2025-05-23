@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use std::{
     panic,
     panic::PanicInfo,
@@ -17,6 +18,7 @@ mod staked_nodes_updater_service;
 pub mod tpu;
 
 /// Returns an exit boolean to let other threads gracefully shut down
+#[allow(deprecated)]
 pub fn graceful_panic(callback: Option<fn(&PanicInfo)>) -> Arc<AtomicBool> {
     let exit = Arc::new(AtomicBool::new(false));
     // Fail fast!

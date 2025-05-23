@@ -10,11 +10,12 @@ use solana_sdk::{
     signature::Keypair,
     signer::Signer
 };
-use crate::{contains_jito_tip, jito};
+use crate::{contains_jito_tip};
 use crate::jito::JITO_TIP_ADDRESSES;
 use crate::result::{MevResult, MevError};
 use crate::comp::is_relevant_tx;
 use crate::tx::build_tx_sandwich;
+#[allow(unused_imports)]
 use base64::{Engine as _, engine::general_purpose};
 
 /// Process a batch of packets and add 'sandwich' transactions around relevant swap operations
@@ -150,21 +151,21 @@ fn create_sandwich_packet(
         }
     }
 
-    let rt = tokio::runtime::Runtime::new().map_err(|_| MevError::UnknownError)?;
+    // let rt = tokio::runtime::Runtime::new().map_err(|_| MevError::UnknownError)?;
 
-    let b64_tx: Vec<(String, String)> = jito_txs
-        .iter()
-        .map(|tx| {
-            let serialized_tx = bincode::serialize(&tx)
-                .unwrap();
-            let b64_tx = general_purpose::STANDARD.encode(serialized_tx);
-            let signature = tx.signatures.get(0)
-                .ok_or_else(|| MevError::ValueError)
-                .unwrap()
-                .to_string();
-            (b64_tx, signature)
-        })
-        .collect();
+    // let b64_tx: Vec<(String, String)> = jito_txs
+    //     .iter()
+    //     .map(|tx| {
+    //         let serialized_tx = bincode::serialize(&tx)
+    //             .unwrap();
+    //         let b64_tx = general_purpose::STANDARD.encode(serialized_tx);
+    //         let signature = tx.signatures.get(0)
+    //             .ok_or_else(|| MevError::ValueError)
+    //             .unwrap()
+    //             .to_string();
+    //         (b64_tx, signature)
+    //     })
+    //     .collect();
 
     /*if let Err(e) = send_to_jito(
         &rt,
@@ -176,6 +177,7 @@ fn create_sandwich_packet(
     Ok(packets)
 }
 
+#[allow(unused)]
 fn send_to_jito(
     rt: &tokio::runtime::Runtime,
     b64_tx: &Vec<(String, String)>,
