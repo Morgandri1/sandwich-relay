@@ -19,12 +19,3 @@ jobs:
   run_tests:
     needs: build_images
     uses: ./.github/workflows/test.yaml
-
-  push_images:
-    needs: run_tests
-    uses: ./.github/workflows/push_artifacts.yaml
-    with:
-      TAG: ${{ github.ref_name }}-${{ github.sha }}
-    secrets:
-      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
-      DOCKERHUB_PWD: ${{ secrets.DOCKERHUB_PWD }}
