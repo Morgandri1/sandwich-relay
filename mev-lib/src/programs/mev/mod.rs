@@ -87,7 +87,7 @@ impl MevInstructionBuilder {
     
     pub fn is_frontrunable(&self, keys: &[Pubkey]) -> bool {
         let wsol = pubkey!("So11111111111111111111111111111111111111112");
-        let def = pubkey!("0000000000000000000000000000000");
+        let def = pubkey!("11111111111111111111111111111111");
         let mint_in = match self {
             Self::PumpFun(ix) => ix.mint_in(keys),
             Self::PumpSwap(ix) => ix.mint_in(keys),
@@ -96,12 +96,14 @@ impl MevInstructionBuilder {
             Self::RaydiumLpv4(ix) => ix.mint_in(keys),
             _ => Ok(def)
         };
-        if let Err(err) = mint_in {
-            eprintln!("Error while checking if frontrunable: {:?}", err);
-            return false;
-        }
         
-        mint_in.unwrap() == wsol
+        match mint_in {
+            Ok(mint) => mint == wsol,
+            Err(err) => {
+                eprintln!("Error while checking if frontrunable: {:?}", err);
+                return false;
+            }
+        }
     }
     
     fn handle_cpmm(

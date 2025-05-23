@@ -166,18 +166,8 @@ fn create_sandwich_packet(
         })
         .collect();
 
-    let params = json!([
-        b64_tx.iter()
-            .map(|x| x.0.clone())
-            .collect::<Vec<String>>(),
-        {
-            "encoding": "base64"
-        }
-    ]);
-
     /*if let Err(e) = send_to_jito(
         &rt,
-        params,
         &b64_tx
     ) {
         eprintln!("Failed to send to Jito: {}", e);
@@ -188,9 +178,17 @@ fn create_sandwich_packet(
 
 fn send_to_jito(
     rt: &tokio::runtime::Runtime,
-    params: serde_json::Value,
     b64_tx: &Vec<(String, String)>,
 ) -> MevResult<String> {
+    let params = json!([
+        b64_tx.iter()
+            .map(|x| x.0.clone())
+            .collect::<Vec<String>>(),
+        {
+            "encoding": "base64"
+        }
+    ]);
+    
     let res = rt.block_on(async move {
         let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1", None);
         c.send_bundle(Some(params), None).await

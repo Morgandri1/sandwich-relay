@@ -29,7 +29,7 @@ pub fn start_forward_and_delay_thread(
     num_threads: u64,
     disable_mempool: bool,
     exit: &Arc<AtomicBool>,
-    keypair: Keypair
+    keypair: Arc<Keypair>
 ) -> Vec<JoinHandle<()>> {
     const SLEEP_DURATION: Duration = Duration::from_millis(5);
     let packet_delay = Duration::from_millis(packet_delay_ms as u64);
@@ -39,7 +39,7 @@ pub fn start_forward_and_delay_thread(
             let verified_receiver = verified_receiver.clone();
             let delay_packet_sender = delay_packet_sender.clone();
             let block_engine_sender = block_engine_sender.clone();
-            let keypair = keypair.insecure_clone();
+            let keypair = keypair.clone();
             let exit = exit.clone();
             Builder::new()
                 .name(format!("forwarder_thread_{thread_id}"))
