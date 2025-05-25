@@ -393,7 +393,6 @@ impl MevInstructionBuilder {
                         system_program: SYSTEM_PROGRAM,
                         associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
                         program: PUMPSWAP_PROGRAM_ID,
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
@@ -426,7 +425,6 @@ impl MevInstructionBuilder {
                         system_program: SYSTEM_PROGRAM,
                         associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
                         program: PUMPSWAP_PROGRAM_ID,
                         coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),

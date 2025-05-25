@@ -180,13 +180,6 @@
       ],
       "accounts": [
         {
-          "name": "pump_amm_program",
-          "docs": [
-            "The pump amm program"
-          ],
-          "address": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
-        },
-        {
           "name": "pool",
           "writable": true
         },
@@ -336,13 +329,6 @@
       ],
       "accounts": [
         {
-          "name": "pump_amm_program",
-          "docs": [
-            "The pump amm program"
-          ],
-          "address": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
-        },
-        {
           "name": "pool",
           "writable": true
         },
@@ -491,13 +477,6 @@
         159
       ],
       "accounts": [
-        {
-          "name": "pump_amm_program",
-          "docs": [
-            "The pump amm program"
-          ],
-          "address": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
-        },
         {
           "name": "pool",
           "writable": true
@@ -665,13 +644,6 @@
         104
       ],
       "accounts": [
-        {
-          "name": "pump_amm_program",
-          "docs": [
-            "The pump amm program"
-          ],
-          "address": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA"
-        },
         {
           "name": "pool",
           "writable": true
