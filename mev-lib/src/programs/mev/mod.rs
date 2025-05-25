@@ -598,9 +598,9 @@ impl MevInstructionBuilder {
                         ),
                         user: signer.pubkey(),
                         system_program: SYSTEM_PROGRAM,
-                        creator_fee_vault: target_static_accounts[accounts[7].account_index as usize],
                         token_program: TOKEN_PROGRAM,
-                        event_authority: target_static_accounts[accounts[9].account_index as usize],
+                        creator_fee_vault: target_static_accounts[accounts[9].account_index as usize],
+                        event_authority: target_static_accounts[accounts[10].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
                         associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
                         sandwich_state: state_account
@@ -627,9 +627,9 @@ impl MevInstructionBuilder {
                         ),
                         user: signer.pubkey(),
                         system_program: SYSTEM_PROGRAM,
-                        creator_fee_vault: target_static_accounts[accounts[7].account_index as usize],
                         token_program: TOKEN_PROGRAM,
-                        event_authority: target_static_accounts[accounts[9].account_index as usize],
+                        creator_fee_vault: target_static_accounts[accounts[9].account_index as usize],
+                        event_authority: target_static_accounts[accounts[10].account_index as usize],
                         pump_program: PUMPFUN_PROGRAM_ID,
                         sandwich_state: state_account
                     })
