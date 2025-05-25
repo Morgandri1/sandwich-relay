@@ -1,10 +1,10 @@
 use std::rc::Rc;
 use anchor_lang::pubkey;
 use solana_sdk::{
-    commitment_config::CommitmentConfig, 
-    hash::Hash, 
-    message::v0::Message as MessageV0, 
-    pubkey::Pubkey, 
+    commitment_config::CommitmentConfig,
+    hash::Hash,
+    message::v0::Message as MessageV0,
+    pubkey::Pubkey,
     signature::{Keypair, Signer}
 };
 use anchor_client::{
@@ -48,7 +48,7 @@ impl MevInstructionBuilder {
             None => Err(MevError::ValueError)
         }
     }
-    
+
     pub fn from_parsed_ix(ix: ParsedInstruction) -> MevResult<Self> {
         match ix {
             ParsedInstruction::PumpFun(i) => Ok(Self::PumpFun(i?)),
@@ -60,10 +60,10 @@ impl MevInstructionBuilder {
             ParsedInstruction::Irrelevant => Err(MevError::UnknownError)
         }
     }
-    
+
     pub fn create_sandwich_txs(
-        &self, 
-        signer: &Keypair, 
+        &self,
+        signer: &Keypair,
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
@@ -76,15 +76,15 @@ impl MevInstructionBuilder {
             _ => Err(MevError::UnknownError)
         }
     }
-    
+
     fn create_client(&self, signer: Keypair) -> MevResult<Program<Rc<Keypair>>> {
         Client::new_with_options(
             Cluster::Localnet, // shouldn't ever be used in theory
-            Rc::new(signer), 
+            Rc::new(signer),
             CommitmentConfig::confirmed()
         ).program(MEV_PROGRAM_ID).map_err(|_| MevError::UnknownError)
     }
-    
+
     pub fn is_frontrunable(&self, keys: &[Pubkey]) -> bool {
         let wsol = pubkey!("So11111111111111111111111111111111111111112");
         let def = pubkey!("11111111111111111111111111111111");
@@ -96,7 +96,7 @@ impl MevInstructionBuilder {
             Self::RaydiumLpv4(ix) => ix.mint_in(keys),
             _ => Ok(def)
         };
-        
+
         match mint_in {
             Ok(mint) => mint == wsol,
             Err(err) => {
@@ -105,11 +105,11 @@ impl MevInstructionBuilder {
             }
         }
     }
-    
+
     fn handle_cpmm(
-        &self, 
-        ix: &ParsedRaydiumCpmmInstructions, 
-        signer: &Keypair, 
+        &self,
+        ix: &ParsedRaydiumCpmmInstructions,
+        signer: &Keypair,
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
@@ -174,15 +174,15 @@ impl MevInstructionBuilder {
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 Ok((
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        front_ix.as_slice(), 
-                        &[], 
+                        &signer.pubkey(),
+                        front_ix.as_slice(),
+                        &[],
                         recent_blockhash
-                    ).map_err(|_| MevError::FailedToBuildTx)?, 
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        back_ix.as_slice(), 
-                        &[], 
+                        &signer.pubkey(),
+                        back_ix.as_slice(),
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
@@ -245,26 +245,26 @@ impl MevInstructionBuilder {
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 Ok((
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        front_ix.as_slice(), 
-                        &[], 
+                        &signer.pubkey(),
+                        front_ix.as_slice(),
+                        &[],
                         recent_blockhash
-                    ).map_err(|_| MevError::FailedToBuildTx)?, 
+                    ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        back_ix.as_slice(), 
-                        &[], 
+                        &signer.pubkey(),
+                        back_ix.as_slice(),
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
             }
         }
     }
-    
+
     fn handle_clmm(
-        &self, 
-        ix: &ParsedRaydiumClmmInstructions, 
-        signer: &Keypair, 
+        &self,
+        ix: &ParsedRaydiumClmmInstructions,
+        signer: &Keypair,
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
@@ -275,7 +275,7 @@ impl MevInstructionBuilder {
                 if accounts.len() < 16 {
                     return Err(MevError::ValueError);
                 }
-                if target_static_accounts[accounts[11].account_index as usize] 
+                if target_static_accounts[accounts[11].account_index as usize]
                     != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
                 }
@@ -286,11 +286,11 @@ impl MevInstructionBuilder {
                         amm_config: target_static_accounts[accounts[1].account_index as usize],
                         pool_state: target_static_accounts[accounts[2].account_index as usize],
                         input_token_account: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &target_static_accounts[accounts[11].account_index as usize]
                         ),
                         output_token_account: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &target_static_accounts[accounts[12].account_index as usize]
                         ),
                         input_vault: target_static_accounts[accounts[5].account_index as usize],
@@ -314,7 +314,7 @@ impl MevInstructionBuilder {
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                
+
                 let back = program
                     .request()
                     .accounts(accounts::RaydiumClmmBackrunSwap {
@@ -337,29 +337,29 @@ impl MevInstructionBuilder {
                     .args(args::RaydiumClmmBackrunSwap { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                
+
                 Ok((
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        front.as_slice(), 
-                        &[], 
+                        &signer.pubkey(),
+                        front.as_slice(),
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        back.as_slice(), 
-                        &[], 
+                        &signer.pubkey(),
+                        back.as_slice(),
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
             }
         }
     }
-    
+
     fn handle_ps(
-        &self, 
-        ix: &ParsedPumpSwapInstructions, 
-        signer: &Keypair, 
+        &self,
+        ix: &ParsedPumpSwapInstructions,
+        signer: &Keypair,
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
@@ -370,7 +370,7 @@ impl MevInstructionBuilder {
                 if accounts.len() < 19 {
                     return Err(MevError::ValueError);
                 }
-                if target_static_accounts[accounts[4].account_index as usize] 
+                if target_static_accounts[accounts[4].account_index as usize]
                     != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
                 }
@@ -406,7 +406,7 @@ impl MevInstructionBuilder {
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                
+
                 let back = program
                     .request()
                     .accounts(accounts::PumpBackrunBuy {
@@ -435,115 +435,32 @@ impl MevInstructionBuilder {
                     .args(args::PumpBackrunBuy { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                
+
                 Ok((
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &front, 
-                        &[], 
+                        &signer.pubkey(),
+                        &front,
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
                         &signer.pubkey(),
-                        &back, 
-                        &[], 
+                        &back,
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
             },
-            ParsedPumpSwapInstructions::Sell { base_amount_in, min_quote_amount_out, accounts, .. } => {
-                if accounts.len() < 19 {
-                    return Err(MevError::ValueError)
-                }
-                if target_static_accounts[accounts[3].account_index as usize]
-                    != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
-                    return Err(MevError::FailedToBuildTx)
-                }
-                
-                let front = program
-                    .request()
-                    .accounts(accounts::PumpFrontrunSell {
-                        pool: target_static_accounts[accounts[0].account_index as usize],
-                        user: signer.pubkey(),
-                        global_config: target_static_accounts[accounts[2].account_index as usize],
-                        base_mint: target_static_accounts[accounts[3].account_index as usize],
-                        quote_mint: target_static_accounts[accounts[4].account_index as usize],
-                        user_base_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[3].account_index as usize]),
-                        user_quote_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[4].account_index as usize]),
-                        pool_base_token_account: target_static_accounts[accounts[7].account_index as usize],
-                        pool_quote_token_account: target_static_accounts[accounts[8].account_index as usize],
-                        protocol_fee_recipient: target_static_accounts[accounts[9].account_index as usize],
-                        protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
-                        base_token_program: target_static_accounts[accounts[11].account_index as usize],
-                        quote_token_program: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: SYSTEM_PROGRAM,
-                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
-                        event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
-                        program: PUMPSWAP_PROGRAM_ID,
-                        coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
-                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
-                        sandwich_state: state_account
-                    })
-                    .args(args::PumpFrontrunSell {
-                        base_amount_in: *base_amount_in,
-                        min_quote_amount_out: *min_quote_amount_out,
-                        sandwich_id: id
-                    })
-                    .instructions()
-                    .map_err(|_| MevError::FailedToBuildTx)?;
-                
-                let back = program
-                    .request()
-                    .accounts(accounts::PumpBackrunSell {
-                        pool: target_static_accounts[accounts[0].account_index as usize],
-                        user: signer.pubkey(),
-                        global_config: target_static_accounts[accounts[2].account_index as usize],
-                        base_mint: target_static_accounts[accounts[3].account_index as usize],
-                        quote_mint: target_static_accounts[accounts[4].account_index as usize],
-                        user_base_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[3].account_index as usize]),
-                        user_quote_token_account: get_associated_token_address(&signer.pubkey(), &target_static_accounts[accounts[4].account_index as usize]),
-                        pool_base_token_account: target_static_accounts[accounts[7].account_index as usize],
-                        pool_quote_token_account: target_static_accounts[accounts[8].account_index as usize],
-                        protocol_fee_recipient: target_static_accounts[accounts[9].account_index as usize],
-                        protocol_fee_recipient_token_account: target_static_accounts[accounts[10].account_index as usize],
-                        base_token_program: target_static_accounts[accounts[11].account_index as usize],
-                        quote_token_program: target_static_accounts[accounts[12].account_index as usize],
-                        system_program: SYSTEM_PROGRAM,
-                        associated_token_program: ASSOCIATED_TOKEN_PROGRAM,
-                        event_authority: target_static_accounts[accounts[15].account_index as usize],
-                        pump_amm_program: PUMPSWAP_PROGRAM_ID, // are these different?
-                        program: PUMPSWAP_PROGRAM_ID,
-                        coin_creator_vault_ata: Some(target_static_accounts[accounts[17].account_index as usize]),
-                        coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
-                        sandwich_state: state_account
-                    })
-                    .args(args::PumpBackrunSell { })
-                    .instructions()
-                    .map_err(|_| MevError::FailedToBuildTx)?;
-                
-                Ok((
-                    MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &front, 
-                        &[], 
-                        recent_blockhash
-                    ).map_err(|_| MevError::FailedToBuildTx)?,
-                    MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &back, 
-                        &[], 
-                        recent_blockhash
-                    ).map_err(|_| MevError::FailedToBuildTx)?
-                ))
+            ParsedPumpSwapInstructions::Sell { .. } => {
+                Err(MevError::FailedToBuildTx)
             }
         }
     }
-    
+
     fn handle_lpv4(
-        &self, 
-        ix: &ParsedRaydiumLpv4Instructions, 
-        signer: &Keypair, 
+        &self,
+        ix: &ParsedRaydiumLpv4Instructions,
+        signer: &Keypair,
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
@@ -559,7 +476,7 @@ impl MevInstructionBuilder {
                     return Err(MevError::FailedToBuildTx)
                 }
                 let mint_out = get_mint_of_account(&target_static_accounts[accounts[16].account_index as usize])?;
-                
+
                 let front = program
                     .request()
                     .accounts(accounts::RaydiumFrontrunAmmSwapBaseIn {
@@ -579,11 +496,11 @@ impl MevInstructionBuilder {
                         serum_pc_vault_account: target_static_accounts[accounts[13].account_index as usize],
                         serum_vault_signer: target_static_accounts[accounts[14].account_index as usize],
                         user_source_token_account: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &mint_in
                         ),
                         user_target_token_account: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &mint_out
                         ),
                         base_mint: mint_in,
@@ -619,11 +536,11 @@ impl MevInstructionBuilder {
                         serum_pc_vault_account: target_static_accounts[accounts[13].account_index as usize],
                         serum_vault_signer: target_static_accounts[accounts[14].account_index as usize],
                         user_source_token_account: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &mint_in
                         ),
                         user_target_token_account: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &mint_out
                         ),
                         base_mint: mint_in,
@@ -634,29 +551,29 @@ impl MevInstructionBuilder {
                     .args(args::BackrunRaydiumAmmSwapBaseIn { })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                    
+
                 Ok((
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &front, 
-                        &[], 
+                        &signer.pubkey(),
+                        &front,
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &back, 
-                        &[], 
+                        &signer.pubkey(),
+                        &back,
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
             }
         }
     }
-    
+
     fn handle_pf(
-        &self, 
-        ix: &ParsedPumpFunInstructions, 
-        signer: &Keypair, 
+        &self,
+        ix: &ParsedPumpFunInstructions,
+        signer: &Keypair,
         target_static_accounts: &[Pubkey],
         recent_blockhash: Hash
     ) -> MevResult<(MessageV0, MessageV0)> {
@@ -676,7 +593,7 @@ impl MevInstructionBuilder {
                         bonding_curve: target_static_accounts[accounts[3].account_index as usize],
                         bonding_curve_ata: target_static_accounts[accounts[4].account_index as usize],
                         user_ata: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &target_static_accounts[accounts[2].account_index as usize]
                         ),
                         user: signer.pubkey(),
@@ -695,7 +612,7 @@ impl MevInstructionBuilder {
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                
+
                 let back = program
                     .request()
                     .accounts(accounts::PumpfunBackrunBuy {
@@ -705,7 +622,7 @@ impl MevInstructionBuilder {
                         bonding_curve: target_static_accounts[accounts[3].account_index as usize],
                         bonding_curve_ata: target_static_accounts[accounts[4].account_index as usize],
                         user_ata: get_associated_token_address(
-                            &signer.pubkey(), 
+                            &signer.pubkey(),
                             &target_static_accounts[accounts[2].account_index as usize]
                         ),
                         user: signer.pubkey(),
@@ -719,18 +636,18 @@ impl MevInstructionBuilder {
                     .args(args::PumpfunBackrunBuy {})
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
-                
+
                 Ok((
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &front, 
-                        &[], 
+                        &signer.pubkey(),
+                        &front,
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?,
                     MessageV0::try_compile(
-                        &signer.pubkey(), 
-                        &back, 
-                        &[], 
+                        &signer.pubkey(),
+                        &back,
+                        &[],
                         recent_blockhash
                     ).map_err(|_| MevError::FailedToBuildTx)?
                 ))
@@ -746,17 +663,17 @@ impl MevInstructionBuilder {
 mod test {
     use crate::programs::{pumpfun::ParsedPumpFunInstructions, Account, ParsedInstruction};
     use super::MevInstructionBuilder;
-    
+
     #[test]
     fn should_generate_swap_uuid_and_pda() {
         let sample_ix = [
-            102, 6, 61, 18, 1, 218, 235, 234, 
-            27, 162, 85, 43, 0, 0, 0, 0, 
+            102, 6, 61, 18, 1, 218, 235, 234,
+            27, 162, 85, 43, 0, 0, 0, 0,
             216, 158, 3, 0, 0, 0, 0, 0
         ].to_vec();
         let key_i: Vec<u8> = [7, 1, 8, 2, 3, 4, 0, 9, 10, 11, 12, 6].to_vec();
         let target = ParsedPumpFunInstructions::from_bytes(
-            sample_ix, 
+            sample_ix,
             key_i.iter().map(|i| Account::new(i, false)).collect()
         );
         let builder = MevInstructionBuilder::from_parsed_ix(ParsedInstruction::PumpFun(target)).unwrap();
