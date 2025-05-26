@@ -176,7 +176,9 @@ impl MevInstructionBuilder {
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
                         sandwich_state: state_account
                     })
-                    .args(args::RaydiumCpmmBackrunSwapBaseInput { })
+                    .args(args::RaydiumCpmmBackrunSwapBaseInput {
+                        sandwich_id: id.clone()
+                    })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 Ok((
@@ -254,7 +256,9 @@ impl MevInstructionBuilder {
                         observation_state: target_static_accounts[accounts[12].account_index as usize],
                         sandwich_state: state_account
                     })
-                    .args(args::RaydiumCpmmBackrunSwapBaseOutput { })
+                    .args(args::RaydiumCpmmBackrunSwapBaseOutput {
+                        sandwich_id: id
+                    })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
                 Ok((
@@ -355,7 +359,9 @@ impl MevInstructionBuilder {
                         clmm_program: RAYDIUM_CLMM_PROGRAM_ID,
                         sandwich_state: state_account
                     })
-                    .args(args::RaydiumClmmBackrunSwap { })
+                    .args(args::RaydiumClmmBackrunSwap {
+                        sandwich_id: id
+                    })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
 
@@ -457,7 +463,9 @@ impl MevInstructionBuilder {
                         coin_creator_vault_authority: Some(target_static_accounts[accounts[18].account_index as usize]),
                         sandwich_state: state_account
                     })
-                    .args(args::PumpBackrunBuy { })
+                    .args(args::PumpBackrunBuy {
+                        sandwich_id: id
+                    })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
 
@@ -579,7 +587,9 @@ impl MevInstructionBuilder {
                         user_source_owner: signer.pubkey(),
                         amm_program: LPV4_SWAP
                     })
-                    .args(args::BackrunRaydiumAmmSwapBaseIn { })
+                    .args(args::BackrunRaydiumAmmSwapBaseIn {
+                        sandwich_id: id
+                    })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
 
@@ -670,7 +680,9 @@ impl MevInstructionBuilder {
                         pump_program: PUMPFUN_PROGRAM_ID,
                         sandwich_state: state_account
                     })
-                    .args(args::PumpfunBackrunBuy {})
+                    .args(args::PumpfunBackrunBuy {
+                        sandwich_id: id
+                    })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
 
