@@ -8,11 +8,11 @@ env:
 
 jobs:
   clean_code_check:
-    uses: ./.github/workflows/clean_code.yaml
+    uses: clean_code.yaml.d
 
   build_images:
     needs: clean_code_check
-    uses: ./.github/workflows/build.yaml
+    uses: build.yaml.d
     with:
       TAG: ${{ github.ref_name }}-${{ github.sha }}
 
