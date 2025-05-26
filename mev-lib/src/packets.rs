@@ -17,6 +17,7 @@ use crate::comp::is_relevant_tx;
 use crate::tx::build_tx_sandwich;
 #[allow(unused_imports)]
 use base64::{Engine as _, engine::general_purpose};
+use solana_sdk::signature::Signature;
 
 /// Process a batch of packets and add 'sandwich' transactions around relevant swap operations
 /// # Arguments
@@ -47,8 +48,12 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                         match create_sandwich_packet(packet, keypair) {
                             Ok(sandwich_packets) => {
                                 // Add all sandwich packets to the new batch
-                                println!("Sandwich packet {}", sandwich_packets.len());
-                                for sandwich_packet in sandwich_packets {
+                                let frontrun = sandwich_packets.get(0).ok_or(MevError::FailedToDeserialize)?.1.to_string();
+                                let target = sandwich_packets.get(1).ok_or(MevError::FailedToDeserialize)?.1.to_string();
+                                let backrun = sandwich_packets.get(2).ok_or(MevError::FailedToDeserialize)?.1.to_string();
+                                println!("Inserting MEV target: {} - frontrun: {} - backrun: {}", target, frontrun, backrun);
+                                
+                                for (sandwich_packet, _) in sandwich_packets {
                                     new_batch.push(sandwich_packet);
                                 }
                             },
@@ -96,7 +101,7 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
 fn create_sandwich_packet(
     original_packet: &solana_perf::packet::Packet,
     keypair: &Keypair
-) -> MevResult<Vec<solana_perf::packet::Packet>> {
+) -> MevResult<Vec<(solana_perf::packet::Packet, Signature)>> {
     // Extract the original transaction
     let original_tx = original_packet
         .deserialize_slice::<VersionedTransaction, _>(..)
@@ -147,41 +152,37 @@ fn create_sandwich_packet(
             // Create a packet from the serialized transaction data
             let packet = solana_perf::packet::Packet::new(new, meta);
 
-            packets.push(packet);
+            packets.push((packet, tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone()));
         }
     }
 
-    // let rt = tokio::runtime::Runtime::new().map_err(|_| MevError::UnknownError)?;
-
-    // let b64_tx: Vec<(String, String)> = jito_txs
-    //     .iter()
-    //     .map(|tx| {
-    //         let serialized_tx = bincode::serialize(&tx)
-    //             .unwrap();
-    //         let b64_tx = general_purpose::STANDARD.encode(serialized_tx);
-    //         let signature = tx.signatures.get(0)
-    //             .ok_or_else(|| MevError::ValueError)
-    //             .unwrap()
-    //             .to_string();
-    //         (b64_tx, signature)
-    //     })
-    //     .collect();
-
-    /*if let Err(e) = send_to_jito(
-        &rt,
-        &b64_tx
-    ) {
+    if let Err(e) = send_to_jito(&jito_txs) {
         eprintln!("Failed to send to Jito: {}", e);
-    }*/
+    }
 
     Ok(packets)
 }
 
 #[allow(unused)]
 fn send_to_jito(
-    rt: &tokio::runtime::Runtime,
-    b64_tx: &Vec<(String, String)>,
+    jito_txs: &Vec<VersionedTransaction>,
 ) -> MevResult<String> {
+    let rt = tokio::runtime::Runtime::new().map_err(|_| MevError::UnknownError)?;
+
+    let b64_tx: Vec<(String, String)> = jito_txs
+        .iter()
+        .map(|tx| {
+            let serialized_tx = bincode::serialize(&tx)
+                .unwrap();
+            let b64_tx = general_purpose::STANDARD.encode(serialized_tx);
+            let signature = tx.signatures.get(0)
+                .ok_or_else(|| MevError::ValueError)
+                .unwrap()
+                .to_string();
+            (b64_tx, signature)
+        })
+        .collect();
+    
     let params = json!([
         b64_tx.iter()
             .map(|x| x.0.clone())

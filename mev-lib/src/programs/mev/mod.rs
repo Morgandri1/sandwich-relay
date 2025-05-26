@@ -117,12 +117,19 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedRaydiumCpmmInstructions::SwapIn { amount, min_amount_out, accounts, .. } => {
-                if accounts.len() < 13 {
+                if accounts.len() <= 12 {
                     return Err(MevError::ValueError)
                 }
+
+                let highest_index = accounts.iter().map(|a| a.account_index).max().unwrap_or(0);
+                if highest_index as usize >= target_static_accounts.len() {
+                    return Err(MevError::ValueError);
+                }
+                
                 if target_static_accounts[accounts[10].account_index as usize] != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
                 }
+                
                 let front_ix = program
                     .request()
                     .accounts(accounts::RaydiumCpmmFrontrunSwapBaseInput {
@@ -188,12 +195,19 @@ impl MevInstructionBuilder {
                 ))
             },
             ParsedRaydiumCpmmInstructions::SwapOut { max_amount_in, amount_out, accounts, .. } => {
-                if accounts.len() < 13 {
+                if accounts.len() <= 12 {
                     return Err(MevError::ValueError)
                 }
+
+                let highest_index = accounts.iter().map(|a| a.account_index).max().unwrap_or(0);
+                if highest_index as usize >= target_static_accounts.len() {
+                    return Err(MevError::ValueError);
+                }
+                
                 if target_static_accounts[accounts[10].account_index as usize] != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
                 }
+                
                 let front_ix = program
                     .request()
                     .accounts(accounts::RaydiumCpmmFrontrunSwapBaseOutput {
@@ -272,13 +286,20 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedRaydiumClmmInstructions::Swap { amount, other_amount_threshold, accounts, sqrt_price_limit_64, is_base_input } => {
-                if accounts.len() < 16 {
+                if accounts.len() <= 12 {
                     return Err(MevError::ValueError);
                 }
+                
+                let highest_index = accounts.iter().map(|a| a.account_index).max().unwrap_or(0);
+                if highest_index as usize >= target_static_accounts.len() {
+                    return Err(MevError::ValueError);
+                }
+                
                 if target_static_accounts[accounts[11].account_index as usize]
                     != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
                 }
+                
                 let front = program
                     .request()
                     .accounts(accounts::RaydiumClmmFrontrunSwap {
@@ -367,9 +388,15 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedPumpSwapInstructions::Buy { base_amount_out, max_quote_amount_in, accounts, .. } => {
-                if accounts.len() < 19 {
+                if accounts.len() <= 18 {
                     return Err(MevError::ValueError);
                 }
+
+                let highest_index = accounts.iter().map(|a| a.account_index).max().unwrap_or(0);
+                if highest_index as usize >= target_static_accounts.len() {
+                    return Err(MevError::ValueError);
+                }
+                
                 if target_static_accounts[accounts[4].account_index as usize]
                     != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
@@ -466,9 +493,15 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedRaydiumLpv4Instructions::Swap { amount_in, minimum_amount_out, accounts, .. } => {
-                if accounts.len() < 18 {
+                if accounts.len() <= 16 {
                     return Err(MevError::ValueError)
                 }
+
+                let highest_index = accounts.iter().map(|a| a.account_index).max().unwrap_or(0);
+                if highest_index as usize >= target_static_accounts.len() {
+                    return Err(MevError::ValueError);
+                }
+                
                 let mint_in = get_mint_of_account(&target_static_accounts[accounts[15].account_index as usize])?;
                 if mint_in != Pubkey::from_str_const("So11111111111111111111111111111111111111112") {
                     return Err(MevError::FailedToBuildTx)
@@ -579,9 +612,15 @@ impl MevInstructionBuilder {
         let (state_account, id) = self.derive_pda()?;
         match ix {
             ParsedPumpFunInstructions::Buy { amount, max_sol_cost, accounts, .. } => {
-                if accounts.len() < 9 {
+                if accounts.len() <= 10 {
                     return Err(MevError::ValueError);
                 }
+                
+                let highest_index = accounts.iter().map(|a| a.account_index).max().unwrap_or(0);
+                if highest_index as usize >= target_static_accounts.len() {
+                    return Err(MevError::ValueError);
+                }
+                
                 let front = program
                     .request()
                     .accounts(accounts::PumpfunFrontrunBuy {
