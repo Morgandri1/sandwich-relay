@@ -68,7 +68,7 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
         ])
     }
 
-    return Ok(vec![transaction.message.clone()]);
+    Ok(vec![transaction.message.clone()])
 }
 
 #[cfg(test)]

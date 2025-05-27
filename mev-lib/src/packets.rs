@@ -52,13 +52,13 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                                 let target = sandwich_packets.get(1).ok_or(MevError::FailedToDeserialize)?.1.to_string();
                                 let backrun = sandwich_packets.get(2).ok_or(MevError::FailedToDeserialize)?.1.to_string();
                                 println!("Inserting MEV target: {} - frontrun: {} - backrun: {}", target, frontrun, backrun);
-                                
+
                                 for (sandwich_packet, _) in sandwich_packets {
                                     new_batch.push(sandwich_packet);
                                 }
                             },
                             Err(err) => {
-                                eprintln!("Failed to create sandwich packet: {}", err);
+                                eprintln!("Failed to create sandwich packet {}: {}", signature, err);
 
                                 // If sandwich creation fails, just include the original packet
                                 new_batch.push(packet.clone());
@@ -128,14 +128,16 @@ fn create_sandwich_packet(
     ];
 
     // Process and sign each sandwich transaction
-    for tx in sandwich_txs.iter_mut() {
-        // Sign the transaction if it's our transaction (not the original)
-        if tx != &original_tx {
+    for i in 0..sandwich_txs.len() {
+        let mut tx = sandwich_txs[i].clone();
+        if sandwich_txs.len() > 1 && i != 1 {
             let signature = keypair.sign_message(&tx.message.serialize());
             tx.signatures = vec![signature];
+            jito_txs.push(tx.clone());
+        } else {
+            tx = original_tx.clone();
+            jito_txs.push(original_tx.clone());
         }
-
-        jito_txs.push(tx.clone());
 
         // Serialize the transaction
         let serialized_tx = bincode::serialize(&tx)
@@ -182,7 +184,7 @@ fn send_to_jito(
             (b64_tx, signature)
         })
         .collect();
-    
+
     let params = json!([
         b64_tx.iter()
             .map(|x| x.0.clone())
@@ -191,7 +193,7 @@ fn send_to_jito(
             "encoding": "base64"
         }
     ]);
-    
+
     let res = rt.block_on(async move {
         let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1", None);
         c.send_bundle(Some(params), None).await
