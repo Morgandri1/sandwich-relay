@@ -193,7 +193,6 @@ fn send_to_jito(
             "encoding": "base64"
         }
     ]);
-
     let res = rt.block_on(async move {
         let c = jito_sdk_rust::JitoJsonRpcSDK::new("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1", None);
         c.send_bundle(Some(params), None).await
