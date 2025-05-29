@@ -164,12 +164,12 @@ fn create_sandwich_packet(
         }
     }
     
-    if let Err(e) = send_to_jito(&jito_txs) {
+    /*if let Err(e) = send_to_jito(&jito_txs) {
         eprintln!("Failed to send to Jito: {}", e);
         return Ok(vec![(original_packet.clone(), original_tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone())]);
-    }
+    }*/
 
-    Ok(vec![])
+    Ok(packets)
 }
 
 #[allow(unused)]
