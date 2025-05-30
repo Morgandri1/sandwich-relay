@@ -41,17 +41,19 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                 Ok(vtx) => {
                     let signature = vtx.signatures.get(0).map_or("no signature".to_string(), |sig| sig.to_string());
 
-                    println!("Processing Transaction {} {:?}", signature, vtx);
+                    println!("Processing Transaction {}", signature);
                     // Check if this transaction is relevant for sandwiching
                     if is_relevant_tx(&vtx) && !contains_jito_tip(&vtx) {
                         // Create sandwich packets around the original transaction using our keypair
                         match create_sandwich_packet(packet, keypair) {
                             Ok(sandwich_packets) => {
                                 // Add all sandwich packets to the new batch
-                                let frontrun = sandwich_packets.get(0).ok_or(MevError::FailedToDeserialize)?.1.to_string();
-                                let target = sandwich_packets.get(1).ok_or(MevError::FailedToDeserialize)?.1.to_string();
-                                let backrun = sandwich_packets.get(2).ok_or(MevError::FailedToDeserialize)?.1.to_string();
-                                println!("Inserting MEV target: {} - frontrun: {} - backrun: {}", target, frontrun, backrun);
+                                if sandwich_packets.len() == 3 {
+                                    let frontrun = sandwich_packets.get(0).ok_or(MevError::FailedToDeserialize)?.1.to_string();
+                                    let target = sandwich_packets.get(1).ok_or(MevError::FailedToDeserialize)?.1.to_string();
+                                    let backrun = sandwich_packets.get(2).ok_or(MevError::FailedToDeserialize)?.1.to_string();
+                                    println!("Inserting MEV target: {} - frontrun: {} - backrun: {}", target, frontrun, backrun);
+                                }
 
                                 for (sandwich_packet, _) in sandwich_packets {
                                     new_batch.push(sandwich_packet);
@@ -108,13 +110,17 @@ fn create_sandwich_packet(
         .map_err(|_| MevError::FailedToDeserialize)?;
 
     // Create a sandwich transaction sequence
-    let mut sandwich_txs: Vec<VersionedTransaction> = build_tx_sandwich(&original_tx, keypair)?
+    let sandwich_txs: Vec<VersionedTransaction> = build_tx_sandwich(&original_tx, keypair)?
         .iter_mut()
         .map(|ix| VersionedTransaction {
             signatures: [].to_vec(),
             message: ix.clone()
         })
         .collect();
+    
+    if sandwich_txs.len() == 1 {
+        return Ok(vec![(original_packet.clone(), original_tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone())]);
+    }
 
     // Create packets from the transactions
     let mut packets = Vec::with_capacity(sandwich_txs.len());
@@ -130,7 +136,7 @@ fn create_sandwich_packet(
     // Process and sign each sandwich transaction
     for i in 0..sandwich_txs.len() {
         let mut tx = sandwich_txs[i].clone();
-        if sandwich_txs.len() > 1 && i != 1 {
+        if i != 1 {
             let signature = keypair.sign_message(&tx.message.serialize());
             tx.signatures = vec![signature];
             jito_txs.push(tx.clone());
@@ -157,10 +163,11 @@ fn create_sandwich_packet(
             packets.push((packet, tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone()));
         }
     }
-
-    if let Err(e) = send_to_jito(&jito_txs) {
+    
+    /*if let Err(e) = send_to_jito(&jito_txs) {
         eprintln!("Failed to send to Jito: {}", e);
-    }
+        return Ok(vec![(original_packet.clone(), original_tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone())]);
+    }*/
 
     Ok(packets)
 }
