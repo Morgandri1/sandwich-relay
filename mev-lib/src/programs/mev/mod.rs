@@ -30,11 +30,6 @@ const MEMO_PROGRAM: Pubkey = Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcW
 const TOKEN_PROGRAM: Pubkey = Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 const TOKEN22_PROGRAM: Pubkey =  Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
-pub struct WrappedMessage {
-    pub inner: MessageV0,
-    pub priority: u8
-}
-
 pub enum MevInstructionBuilder {
     PumpFun(ParsedPumpFunInstructions),
     PumpSwap(ParsedPumpSwapInstructions),

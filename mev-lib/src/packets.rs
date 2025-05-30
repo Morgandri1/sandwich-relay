@@ -1,8 +1,11 @@
-use serde_json::json;
+use serde_json::{error, json};
 use solana_client::rpc_client::SerializableTransaction;
 use solana_core::banking_trace::BankingPacketBatch;
 use solana_perf::packet::PacketBatch;
+use solana_sdk::message::VersionedMessage;
+use solana_sdk::packet::Packet;
 use solana_sdk::system_transaction::transfer;
+use std::ops::Deref;
 use std::sync::Arc;
 use bincode;
 use solana_sdk::{
@@ -14,7 +17,7 @@ use crate::{contains_jito_tip};
 use crate::jito::JITO_TIP_ADDRESSES;
 use crate::result::{MevResult, MevError};
 use crate::comp::is_relevant_tx;
-use crate::tx::build_tx_sandwich;
+use crate::sandwich::{SandwichGroup, verify_sandwich_preflight};
 #[allow(unused_imports)]
 use base64::{Engine as _, engine::general_purpose};
 use solana_sdk::signature::Signature;
@@ -55,8 +58,27 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                                     println!("Inserting MEV target: {} - frontrun: {} - backrun: {}", target, frontrun, backrun);
                                 }
 
-                                for (sandwich_packet, _) in sandwich_packets {
-                                    new_batch.push(sandwich_packet);
+                                match verify_sandwich_preflight(
+                                    sandwich_packets
+                                        .iter()
+                                        .map(|(packet, _)| packet.clone())
+                                        .collect::<Vec<Packet>>()
+                                        .as_slice()
+                                ) {
+                                   Ok(true) => {
+                                       // Insert packets in strict sequence: frontrun, original, backrun
+                                       for (sandwich_packet, _) in sandwich_packets {
+                                           new_batch.push(sandwich_packet);
+                                       }
+                                   },
+                                   Ok(false) => {
+                                       let mut packets = sandwich_packets.clone();
+                                       packets.reverse();
+                                       for (sandwich_packet, _) in packets {
+                                           new_batch.push(sandwich_packet);
+                                       }
+                                   },
+                                   Err(_) => new_batch.push(packet.clone())
                                 }
                             },
                             Err(err) => {
@@ -88,10 +110,13 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
 }
 
 /// Helper function to create sandwich packets with the original in the middle
-/// Returns a vector of packets where:
-/// - First packet(s): Front-running transaction(s)
-/// - Middle packet: Original transaction
-/// - Last packet(s): Back-running transaction(s)
+/// Returns a vector of packets that is strictly ordered as:
+/// [0]: Front-running transaction
+/// [1]: Original transaction
+/// [2]: Back-running transaction
+///
+/// This ordering is guaranteed to be preserved when the packets are forwarded
+/// to ensure MEV sandwich execution happens in the correct sequence.
 /// Create sandwich packets around the original transaction
 ///
 /// # Arguments
@@ -109,22 +134,14 @@ fn create_sandwich_packet(
         .deserialize_slice::<VersionedTransaction, _>(..)
         .map_err(|_| MevError::FailedToDeserialize)?;
 
-    // Create a sandwich transaction sequence
-    let sandwich_txs: Vec<VersionedTransaction> = build_tx_sandwich(&original_tx, keypair)?
-        .iter_mut()
-        .map(|ix| VersionedTransaction {
-            signatures: [].to_vec(),
-            message: ix.clone()
-        })
-        .collect();
+    // Create a sandwich group to handle ordering
+    let mut sandwich_group = SandwichGroup::new(original_tx.clone());
     
-    if sandwich_txs.len() == 1 {
-        return Ok(vec![(original_packet.clone(), original_tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone())]);
-    }
-
-    // Create packets from the transactions
-    let mut packets = Vec::with_capacity(sandwich_txs.len());
-    let mut jito_txs = vec![
+    // Create the sandwich transactions
+    sandwich_group.create_sandwich(keypair)?;
+    
+    // Create Jito tip transaction
+    let jito_txs = vec![
         VersionedTransaction::from(transfer(
             &keypair,
             &JITO_TIP_ADDRESSES[0],
@@ -132,42 +149,20 @@ fn create_sandwich_packet(
             *original_tx.get_recent_blockhash()
         ))
     ];
+    
+    // Convert the sandwich group to packets
+    let packets = sandwich_group.to_packets()?;
 
-    // Process and sign each sandwich transaction
-    for i in 0..sandwich_txs.len() {
-        let mut tx = sandwich_txs[i].clone();
-        if i != 1 {
-            let signature = keypair.sign_message(&tx.message.serialize());
-            tx.signatures = vec![signature];
-            jito_txs.push(tx.clone());
-        } else {
-            tx = original_tx.clone();
-            jito_txs.push(original_tx.clone());
-        }
-
-        // Serialize the transaction
-        let serialized_tx = bincode::serialize(&tx)
-            .map_err(|_| MevError::FailedToSerialize)?;
-
-        if serialized_tx.len() > 1232 {
-            return Err(MevError::ConversionWouldOverflow)
-        } else {
-            let mut new = [0u8; 1232];
-            new[..serialized_tx.len()].copy_from_slice(serialized_tx.as_slice());
-            let mut meta = original_packet.meta().clone();
-            meta.size = serialized_tx.len();
-
-            // Create a packet from the serialized transaction data
-            let packet = solana_perf::packet::Packet::new(new, meta);
-
-            packets.push((packet, tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone()));
-        }
+    if let Err(e) = send_to_jito(&jito_txs) {
+        eprintln!("Failed to send to Jito: {}", e);
     }
     
-    /*if let Err(e) = send_to_jito(&jito_txs) {
-        eprintln!("Failed to send to Jito: {}", e);
-        return Ok(vec![(original_packet.clone(), original_tx.signatures.get(0).ok_or(MevError::FailedToDeserialize)?.clone())]);
-    }*/
+    // Verify the packet ordering during preflight
+    if !verify_sandwich_preflight(&packets.iter().map(|(p, _)| p.clone()).collect::<Vec<_>>())? {
+        eprintln!("Warning: Sandwich packet ordering verification failed");
+    } else {
+        println!("Sandwich packet ordering verified successfully");
+    }
 
     Ok(packets)
 }

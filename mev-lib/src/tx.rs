@@ -16,7 +16,6 @@ pub const JUPITER_PROGRAM_ID: &str = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV
 /// * `new_signer` - The public key of the sandwich trader (who will execute the sandwich)
 /// # Returns
 /// A vector containing transactions to execute before and after the original transaction
-/// to extract MEV value from the swap
 pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypair) -> MevResult<Vec<VersionedMessage>> {
     let message = &transaction.message;
     let static_keys = message.static_account_keys();
@@ -68,6 +67,7 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
         ])
     }
 
+    // If no sandwich opportunity found, just return the original transaction
     Ok(vec![transaction.message.clone()])
 }
 
