@@ -2,10 +2,13 @@ use std::rc::Rc;
 use anchor_lang::pubkey;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    compute_budget::ComputeBudgetInstruction,
     hash::Hash,
-    message::v0::Message as MessageV0,
+    instruction::Instruction,
+    message::{v0::Message as MessageV0, VersionedMessage},
     pubkey::Pubkey,
-    signature::{Keypair, Signer}
+    signature::{Keypair, Signer},
+    transaction::VersionedTransaction
 };
 use anchor_client::{
     anchor_lang::declare_program, Client, Cluster, Program
@@ -29,6 +32,7 @@ const ASSOCIATED_TOKEN_PROGRAM: Pubkey = Pubkey::from_str_const(ASSOCIATED_TOKEN
 const MEMO_PROGRAM: Pubkey = Pubkey::from_str_const("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 const TOKEN_PROGRAM: Pubkey = Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 const TOKEN22_PROGRAM: Pubkey =  Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+const COMPUTE_BUDGET_PROGRAM: Pubkey = Pubkey::from_str_const("ComputeBudget111111111111111111111111111111");
 
 pub enum MevInstructionBuilder {
     PumpFun(ParsedPumpFunInstructions),
@@ -59,6 +63,144 @@ impl MevInstructionBuilder {
             ParsedInstruction::RaydiumStable(i) => Ok(Self::RaydiumStable(i?)),
             ParsedInstruction::Irrelevant => Err(MevError::UnknownError)
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn create_compute_budget_instructions(
+        units: Option<u32>,
+        price: Option<u64>,
+    ) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+        
+        // Set compute unit limit if specified
+        if let Some(compute_units) = units {
+            instructions.push(
+                ComputeBudgetInstruction::set_compute_unit_limit(compute_units)
+            );
+        }
+        
+        // Set compute unit price if specified
+        if let Some(compute_price) = price {
+            instructions.push(
+                ComputeBudgetInstruction::set_compute_unit_price(compute_price)
+            );
+        }
+        
+        instructions
+    }
+    
+    /// Creates compute budget instructions based on the target transaction.
+    /// The frontrun will have 35% more compute units than the target,
+    /// and the backrun will have 35% less compute units than the target.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_tx` - The target transaction to base compute budget on
+    /// * `prioritize_frontrun` - Optional priority boost (in micro lamports) for frontrun
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing compute budget instructions for (frontrun, backrun)
+    pub fn create_compute_budget_instructions_from_target(
+        target_tx: &VersionedTransaction,
+        prioritize_frontrun: Option<u64>,
+    ) -> (Vec<Instruction>, Vec<Instruction>) {
+        // Default compute unit limit if we can't determine from target
+        const DEFAULT_COMPUTE_UNITS: u32 = 20_000;
+        
+        // Extract compute unit limit from target transaction if present
+        let mut target_units = DEFAULT_COMPUTE_UNITS;
+        
+        // Check if target has compute budget instructions
+        if let Some(instructions) = Self::get_compute_budget_from_tx(target_tx) {
+            for ix in instructions {
+                // Only care about the unit limit instruction for scaling
+                if let Some(units) = Self::extract_compute_units(&ix) {
+                    target_units = units;
+                    break;
+                }
+            }
+        }
+        
+        // Calculate compute units for frontrun (35% more)
+        let frontrun_units = (target_units as f32 * 1.35).min(u32::MAX as f32) as u32;
+        
+        // Calculate compute units for backrun (35% less)
+        let backrun_units = (target_units as f32 * 0.65) as u32;
+        
+        // Create frontrun compute budget instructions
+        let mut frontrun_instructions = Vec::new();
+        frontrun_instructions.push(ComputeBudgetInstruction::set_compute_unit_limit(frontrun_units));
+        
+        // Add priority fee to frontrun if specified
+        if let Some(priority) = prioritize_frontrun {
+            frontrun_instructions.push(ComputeBudgetInstruction::set_compute_unit_price(priority));
+        }
+        
+        // Create backrun compute budget instructions
+        let backrun_instructions = vec![
+            ComputeBudgetInstruction::set_compute_unit_limit(backrun_units)
+        ];
+        
+        (frontrun_instructions, backrun_instructions)
+    }
+    
+    /// Extract compute budget instructions from a transaction
+    pub fn get_compute_budget_from_tx(tx: &VersionedTransaction) -> Option<Vec<Instruction>> {
+        let message = &tx.message;
+        let compute_budget_program_index = message.static_account_keys().iter()
+            .position(|key| *key == COMPUTE_BUDGET_PROGRAM)?;
+        
+        // Find all instructions using the compute budget program
+        let mut compute_budget_ixs = Vec::new();
+        
+        // Extract instructions based on the message version
+        let instructions = match &message {
+            VersionedMessage::Legacy(legacy) => &legacy.instructions,
+            VersionedMessage::V0(v0) => &v0.instructions,
+        };
+        
+        // Process all instructions that use the compute budget program
+        for ix in instructions {
+            if ix.program_id_index as usize == compute_budget_program_index {
+                // Convert compiled instruction back to instruction
+                let program_id = COMPUTE_BUDGET_PROGRAM;
+                let accounts = vec![]; // Compute budget instructions don't use accounts
+                let data = ix.data.clone();
+                
+                compute_budget_ixs.push(Instruction {
+                    program_id,
+                    accounts,
+                    data,
+                });
+            }
+        }
+        
+        if compute_budget_ixs.is_empty() {
+            None
+        } else {
+            Some(compute_budget_ixs)
+        }
+    }
+    
+    /// Extract compute unit limit from a compute budget instruction
+    pub fn extract_compute_units(ix: &Instruction) -> Option<u32> {
+        if ix.program_id != COMPUTE_BUDGET_PROGRAM {
+            return None;
+        }
+
+        if ix.data.is_empty() || ix.data[0] != 2 {
+            return None;
+        }
+        
+        // The unit limit is encoded as a little-endian u32 in the next 4 bytes
+        if ix.data.len() < 5 {
+            return None;
+        }
+        
+        let mut num = [0; 4];
+        num.copy_from_slice(&ix.data[1..]);
+        Some(u32::from_le_bytes(num))
     }
 
     pub fn create_sandwich_txs(
@@ -181,6 +323,7 @@ impl MevInstructionBuilder {
                     })
                     .instructions()
                     .map_err(|_| MevError::FailedToBuildTx)?;
+
                 Ok((
                     MessageV0::try_compile(
                         &signer.pubkey(),
@@ -711,6 +854,7 @@ impl MevInstructionBuilder {
 #[cfg(test)]
 mod test {
     use crate::programs::{pumpfun::ParsedPumpFunInstructions, Account, ParsedInstruction};
+    use solana_sdk::{compute_budget::{ComputeBudgetInstruction, ID as COMPUTE_BUDGET_PROGRAM}, hash::Hash, instruction::Instruction, message::{Message, VersionedMessage}, transaction::VersionedTransaction, pubkey::Pubkey};
     use super::MevInstructionBuilder;
 
     #[test]
@@ -728,5 +872,130 @@ mod test {
         let builder = MevInstructionBuilder::from_parsed_ix(ParsedInstruction::PumpFun(target)).unwrap();
         let (_, id) = builder.derive_pda().unwrap();
         println!("{:?}", id);
+    }
+
+    #[test]
+    fn should_create_compute_budget_instructions() {
+        // Test with both parameters specified
+        let instructions = MevInstructionBuilder::create_compute_budget_instructions(
+            Some(300_000),
+            Some(1_000)
+        );
+        
+        assert_eq!(instructions.len(), 2);
+        assert_eq!(instructions[0].program_id, COMPUTE_BUDGET_PROGRAM);
+        assert_eq!(instructions[1].program_id, COMPUTE_BUDGET_PROGRAM);
+        
+        // Verify first instruction is set_compute_unit_limit with correct data
+        let expected_unit_limit = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+        assert_eq!(instructions[0].data, expected_unit_limit.data);
+        
+        // Verify second instruction is set_compute_unit_price with correct data
+        let expected_unit_price = ComputeBudgetInstruction::set_compute_unit_price(1_000);
+        assert_eq!(instructions[1].data, expected_unit_price.data);
+        
+        // Test with only units parameter
+        let instructions_units_only = MevInstructionBuilder::create_compute_budget_instructions(
+            Some(200_000),
+            None
+        );
+        
+        assert_eq!(instructions_units_only.len(), 1);
+        assert_eq!(instructions_units_only[0].program_id, COMPUTE_BUDGET_PROGRAM);
+        
+        // Test with only price parameter
+        let instructions_price_only = MevInstructionBuilder::create_compute_budget_instructions(
+            None,
+            Some(500)
+        );
+        
+        assert_eq!(instructions_price_only.len(), 1);
+        assert_eq!(instructions_price_only[0].program_id, COMPUTE_BUDGET_PROGRAM);
+        
+        // Test with no parameters
+        let empty_instructions = MevInstructionBuilder::create_compute_budget_instructions(
+            None,
+            None
+        );
+        
+        assert_eq!(empty_instructions.len(), 0);
+    }
+    
+    #[test]
+    fn should_create_compute_budget_instructions_from_target() {        
+        // Create a mock instruction that looks like a ComputeBudget instruction
+        let mock_compute_budget_data = [
+            0, // SetComputeUnitLimit discriminator
+            0x10, 0xF6 // 20,000 in little-endian bytes
+        ];
+        
+        let mock_compute_budget_ix = Instruction {
+            program_id: COMPUTE_BUDGET_PROGRAM,
+            accounts: vec![],
+            data: mock_compute_budget_data.clone().to_vec(),
+        };
+        
+        // Create a mock transaction with the compute budget instruction
+        let mock_tx = VersionedTransaction {
+            signatures: vec![],
+            message: VersionedMessage::Legacy(Message::new(
+                &[mock_compute_budget_ix],
+                Some(&Pubkey::new_unique())
+            )),
+        };
+        
+        // Test the calculation logic
+        let (frontrun, backrun) = MevInstructionBuilder::create_compute_budget_instructions_from_target(
+            &mock_tx,
+            Some(1000)
+        );
+        
+        // Verify frontrun has 2 instructions (unit limit and price)
+        assert_eq!(frontrun.len(), 2);
+        assert_eq!(frontrun[0].program_id, COMPUTE_BUDGET_PROGRAM);
+        
+        // First instruction should be set_compute_unit_limit with ~35% more units
+        let expected_frontrun_units = (20_000 as f32 * 1.35) as u32; // ~27,000
+        let extracted_frontrun_units = MevInstructionBuilder::extract_compute_units(&frontrun[0]);
+        assert!(extracted_frontrun_units.is_some());
+        assert_eq!(extracted_frontrun_units.unwrap(), expected_frontrun_units);
+        
+        // Second instruction should be set_compute_unit_price with 1000
+        assert_eq!(frontrun[1].data[0], 3); // SetComputeUnitPrice discriminator
+        
+        // Verify backrun has 1 instruction (unit limit only)
+        assert_eq!(backrun.len(), 1);
+        assert_eq!(backrun[0].program_id, COMPUTE_BUDGET_PROGRAM);
+        
+        // Backrun instruction should be set_compute_unit_limit with ~35% fewer units
+        let expected_backrun_units = (20_000 as f32 * 0.65) as u32; // ~13,000
+        let extracted_backrun_units = MevInstructionBuilder::extract_compute_units(&backrun[0]);
+        assert!(extracted_backrun_units.is_some());
+        assert_eq!(extracted_backrun_units.unwrap(), expected_backrun_units);
+        
+        // Test fallback to default for transaction with no compute budget
+        let mock_tx_no_budget = VersionedTransaction {
+            signatures: vec![],
+            message: VersionedMessage::Legacy(Message::new_with_compiled_instructions(
+                1,
+                0,
+                0,
+                vec![Pubkey::new_unique()], // Some other program
+                Hash::default(),
+                vec![]
+            )),
+        };
+        
+        let (frontrun_default, backrun_default) = 
+            MevInstructionBuilder::create_compute_budget_instructions_from_target(&mock_tx_no_budget, None);
+        
+        // Default should be used: 200_000 baseline
+        // Frontrun: ~270,000 (35% more)
+        let default_frontrun_units = MevInstructionBuilder::extract_compute_units(&frontrun_default[0]).unwrap();
+        assert_eq!(default_frontrun_units, (20_000 as f32 * 1.35) as u32);
+        
+        // Backrun: ~130,000 (35% less)
+        let default_backrun_units = MevInstructionBuilder::extract_compute_units(&backrun_default[0]).unwrap();
+        assert_eq!(default_backrun_units, (20_000 as f32 * 0.65) as u32);
     }
 }

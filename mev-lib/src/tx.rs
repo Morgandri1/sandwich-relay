@@ -1,6 +1,6 @@
 use solana_client::rpc_client::SerializableTransaction;
 use solana_sdk::{
-    message::VersionedMessage, signature::Keypair, signer::Signer, transaction::VersionedTransaction
+    message::VersionedMessage, signature::Keypair, signer::Signer, transaction::VersionedTransaction, instruction::CompiledInstruction
 };
 use crate::{programs::{mev::MevInstructionBuilder, ParsedInstruction}, result::MevResult};
 
@@ -55,11 +55,41 @@ pub fn build_tx_sandwich(transaction: &VersionedTransaction, new_signer: &Keypai
             },
             None => continue
         };
-        let (front, back) = builder.create_sandwich_txs(
+        let (front_priority, back_priority) = MevInstructionBuilder::create_compute_budget_instructions_from_target(transaction, None);
+
+        
+        let (mut front, mut back) = builder.create_sandwich_txs(
             new_signer,
             static_keys,
             *transaction.get_recent_blockhash()
         )?;
+        
+        front.account_keys.push(solana_sdk::compute_budget::ID);
+        back.account_keys.push(solana_sdk::compute_budget::ID);
+        
+        front.instructions.splice(
+            0..0,
+            front_priority.iter().map(|ix| CompiledInstruction {
+                program_id_index: (front.account_keys.len() - 1) as u8,
+                accounts: ix.accounts
+                    .iter()
+                    .map(|a| front.account_keys.iter().position(|k| k == &a.pubkey).unwrap_or(0) as u8)
+                    .collect(),
+                data: ix.data.clone()
+            })
+        );
+        back.instructions.splice(
+            0..0,
+            back_priority.iter().map(|ix| CompiledInstruction {
+                program_id_index: (back.account_keys.len() - 1) as u8,
+                accounts: ix.accounts
+                    .iter()
+                    .map(|a| back.account_keys.iter().position(|k| k == &a.pubkey).unwrap_or(0) as u8)
+                    .collect(),
+                data: ix.data.clone()
+            })
+        );
+        
         return Ok(vec![
             VersionedMessage::V0(front),
             transaction.message.clone(),
