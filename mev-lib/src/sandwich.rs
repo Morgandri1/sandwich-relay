@@ -4,6 +4,7 @@ use solana_sdk::{
 use std::ops::{Deref, DerefMut};
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use solana_perf::packet::Packet;
+use solana_sdk::packet::Meta;
 use crate::{programs::mev::MEV_PROGRAM_ID, result::{MevError, MevResult}};
 use crate::tx::build_tx_sandwich;
 
@@ -74,6 +75,7 @@ impl Debug for PrioritizedTx {
 /// A group of related sandwich transactions
 #[derive(Clone)]
 pub struct SandwichGroup {
+    meta: Meta,
     /// The frontrun transaction
     pub frontrun: Option<PrioritizedTx>,
     /// The original transaction
@@ -84,8 +86,9 @@ pub struct SandwichGroup {
 
 impl SandwichGroup {
     /// Create a new sandwich group from an original transaction
-    pub fn new(original_tx: VersionedTransaction) -> Self {
+    pub fn new(original_tx: VersionedTransaction, meta: Meta) -> Self {
         Self {
+            meta,
             frontrun: None,
             original: PrioritizedTx::new(original_tx, PRIORITY_ORIGINAL),
             backrun: None,
@@ -137,6 +140,16 @@ impl SandwichGroup {
         Ok(())
     }
     
+    fn add_meta(&self, tx_data: Vec<u8>, packets: &mut Vec<(Packet, Signature)>, signature: &Signature) {
+        let mut new = [0u8; 1232];
+        new[..tx_data.len()].copy_from_slice(tx_data.as_slice());
+        let mut meta = self.meta.clone();
+        meta.size = tx_data.len();
+
+        let packet = Packet::new(new, meta);
+        packets.push((packet, *signature));
+    }
+    
     /// Convert this sandwich group to a vector of packets in the correct order:
     /// [frontrun, original, backrun]
     pub fn to_packets(&self) -> MevResult<Vec<(Packet, Signature)>> {
@@ -150,14 +163,8 @@ impl SandwichGroup {
                 // Serialize the transaction
                 let tx_data = bincode::serialize(&frontrun.transaction)
                     .map_err(|_| MevError::FailedToSerialize)?;
-                
-                // Create the packet
-                match Packet::from_data(None, &tx_data) {
-                    Ok(packet) => {
-                        packets.push((packet, *signature));
-                    },
-                    Err(_) => return Err(MevError::FailedToSerialize),
-                }
+
+                self.add_meta(tx_data, &mut packets, signature);
             }
         }
         
@@ -166,14 +173,8 @@ impl SandwichGroup {
             // Serialize the transaction
             let tx_data = bincode::serialize(&self.original.transaction)
                 .map_err(|_| MevError::FailedToSerialize)?;
-            
-            // Create the packet
-            match Packet::from_data(None, &tx_data) {
-                Ok(packet) => {
-                    packets.push((packet, *signature));
-                },
-                Err(_) => return Err(MevError::FailedToSerialize),
-            }
+
+            self.add_meta(tx_data, &mut packets, signature);
         } else {
             return Err(MevError::FailedToDeserialize);
         }
@@ -184,14 +185,8 @@ impl SandwichGroup {
                 // Serialize the transaction
                 let tx_data = bincode::serialize(&backrun.transaction)
                     .map_err(|_| MevError::FailedToSerialize)?;
-                
-                // Create the packet
-                match Packet::from_data(None, &tx_data) {
-                    Ok(packet) => {
-                        packets.push((packet, *signature));
-                    },
-                    Err(_) => return Err(MevError::FailedToSerialize),
-                }
+
+                self.add_meta(tx_data, &mut packets, signature);
             }
         }
         
@@ -224,6 +219,7 @@ fn filter_instructions(message: &VersionedMessage) -> MevResult<CompiledInstruct
         .iter()
         .filter(|ix| ix.program_id(message.static_account_keys()) == &MEV_PROGRAM_ID)
         .collect();
+    
     if ix.len() == 1 {
         return Ok(ix[0].clone())
     } else {
@@ -241,12 +237,19 @@ pub fn verify_sandwich_preflight(packets: &[Packet]) -> MevResult<bool> {
     let vtxs: Vec<VersionedTransaction> = packets
         .iter()
         .map(|p| p.deserialize_slice::<VersionedTransaction, _>(..))
-        .filter(|r| r.is_ok())
+        .filter(|r| {
+            if let Err(e) = r {
+                eprintln!("Failed to deserialize packet: {:?}", e);
+                return false;
+            }
+            
+            true
+        })
         .map(|r| r.unwrap())
         .collect();
     
     if vtxs.len() != packets.len() {
-        eprintln!("{:?}", vtxs.len());
+        eprintln!("Package length {:?}", vtxs.len());
         return Err(MevError::FailedToDeserialize);
     }
     
@@ -265,9 +268,9 @@ pub fn verify_sandwich_preflight(packets: &[Packet]) -> MevResult<bool> {
     
     // frontrun will always contain more ix data than backrun
     if run_ix[0].data.len() > run_ix[1].data.len() {
-        return Ok(true)
+        Ok(true)
     } else {
-        return Ok(false)
+        Ok(false)
     }
 }
 
@@ -309,7 +312,7 @@ mod tests {
         let tx = create_test_transaction();
         
         // Create sandwich group
-        let group = SandwichGroup::new(tx.clone());
+        let group = SandwichGroup::new(tx.clone(), Meta::default());
         
         // Verify original is set
         assert_eq!(group.original.priority, PRIORITY_ORIGINAL);

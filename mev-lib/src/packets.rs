@@ -66,19 +66,24 @@ pub fn sandwich_batch_packets(batch: BankingPacketBatch, keypair: &Keypair) -> M
                                         .as_slice()
                                 ) {
                                    Ok(true) => {
+                                       println!("Sandwich preflight verification passed for transaction {}", signature);
                                        // Insert packets in strict sequence: frontrun, original, backrun
                                        for (sandwich_packet, _) in sandwich_packets {
                                            new_batch.push(sandwich_packet);
                                        }
                                    },
                                    Ok(false) => {
+                                        println!("Sandwich preflight verification failed for transaction {}", signature);
                                        let mut packets = sandwich_packets.clone();
                                        packets.reverse();
                                        for (sandwich_packet, _) in packets {
                                            new_batch.push(sandwich_packet);
                                        }
                                    },
-                                   Err(_) => new_batch.push(packet.clone())
+                                   Err(err) => {
+                                        println!("Sandwich preflight verification error for transaction {}: {}", signature, err);
+                                       new_batch.push(packet.clone())
+                                   }
                                 }
                             },
                             Err(err) => {
@@ -135,7 +140,7 @@ fn create_sandwich_packet(
         .map_err(|_| MevError::FailedToDeserialize)?;
 
     // Create a sandwich group to handle ordering
-    let mut sandwich_group = SandwichGroup::new(original_tx.clone());
+    let mut sandwich_group = SandwichGroup::new(original_tx.clone(), original_packet.meta().clone());
 
     // Create the sandwich transactions
     sandwich_group.create_sandwich(keypair)?;
