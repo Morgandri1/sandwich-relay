@@ -136,10 +136,10 @@ fn create_sandwich_packet(
 
     // Create a sandwich group to handle ordering
     let mut sandwich_group = SandwichGroup::new(original_tx.clone());
-    
+
     // Create the sandwich transactions
     sandwich_group.create_sandwich(keypair)?;
-    
+
     // Create Jito tip transaction
     let jito_txs = vec![
         VersionedTransaction::from(transfer(
@@ -149,14 +149,14 @@ fn create_sandwich_packet(
             *original_tx.get_recent_blockhash()
         ))
     ];
-    
+
     // Convert the sandwich group to packets
     let packets = sandwich_group.to_packets()?;
 
-    if let Err(e) = send_to_jito(&jito_txs) {
+    /*if let Err(e) = send_to_jito(&jito_txs) {
         eprintln!("Failed to send to Jito: {}", e);
-    }
-    
+    }*/
+
     // Verify the packet ordering during preflight
     if !verify_sandwich_preflight(&packets.iter().map(|(p, _)| p.clone()).collect::<Vec<_>>())? {
         eprintln!("Warning: Sandwich packet ordering verification failed");
