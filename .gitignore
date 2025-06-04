@@ -8,6 +8,7 @@
 # CLION IDE
 .idea/
 
-.env
 docker-output/
 **/.DS_Store
+config.bat
+node_modules
