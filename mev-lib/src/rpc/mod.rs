@@ -5,7 +5,7 @@ use spl_token::state::{Account, GenericTokenAccount};
 use crate::result::{MevError, MevResult};
 
 fn client() -> MevResult<RpcClient> {
-    let c = RpcClient::new("localhost:8899");
+    let c = RpcClient::new("http://localhost:8899/");
     if c.get_health().is_ok() {
         Ok(c)
     } else {
